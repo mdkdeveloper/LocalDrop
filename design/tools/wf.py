@@ -280,10 +280,12 @@ def panel_tabs(active, peer="Laptop", online=True, peer_sub=None, disc=True):
                R(10, 1, LINE, name="Baseline", sizingH="fill"), gap=0, fills=[SURF])
 
 
-def path_bar(*parts, actions=("Search", "Sort"), up=None):
+def path_bar(*parts, actions=("Search", "Sort"), up=None, search_to=None):
     back = T("‹", 22, "Medium", name="Up")
     return row("Path bar", link(back, up) if up else back, crumbs(*parts), spacer(),
-               *[icon(24, 7, name=f"Action / {a}") for a in actions],
+               *[link(icon(24, 7, name=f"Action / {a}"), search_to)
+                 if a == "Search" and search_to else icon(24, 7, name=f"Action / {a}")
+                 for a in actions],
                gap=10, pad=[10, 16, 10, 16])
 
 
@@ -337,7 +339,7 @@ def p_files_remote():
     return phone(
         "Phone / 02 Files — right tab (other device)",
         panel_tabs(1),
-        path_bar("Photos", "Camera", up="files-root"),
+        path_bar("Photos", "Camera", up="files-root", search_to="search"),
         inset(row("Access", T("Your access:", 12, color=MUTE),
                   perm_chips("Browse", "Download", "Upload", "Delete → Trash"), gap=6),
               pad=(0, 16, 8, 16)),
@@ -404,7 +406,7 @@ def p_files_root():
     return phone(
         "Phone / 09 Files — right tab, device root",
         panel_tabs(1),
-        path_bar("Dmytro's Laptop", actions=("Search",)),
+        path_bar("Dmytro's Laptop", actions=("Search",), search_to="search"),
         inset(row("Device", F("Avatar", R(36, 36, BLOCK, 18), status_dot(True),
                               layout="horizontal", gap=-10, crossAlign="max", sizingH="hug",
                               sizingV="hug"),
@@ -611,7 +613,7 @@ def p_transfers():
         "Phone / 04 Transfers",
         app_bar("Transfers", "2 active · 3 waiting", actions=("Filter",)),
         inset(row("Tabs", chip("All", True), chip("Outgoing"), chip("Incoming"), spacer(),
-                  T("Clear done", 13, "Medium", MUTE), gap=8), pad=(4, 20, 4, 20)),
+                  link(T("History  ›", 13, "Semi Bold", name="History"), "history"), gap=8), pad=(4, 20, 4, 20)),
         section("To Dmytro's Laptop", "Sending"), inset(laptop),
         section("To iPad", "Offline"), inset(ipad),
         section("Incoming"), inset(incoming),
@@ -938,7 +940,7 @@ def d_remote(name="Desktop / 01 Browse — remote only"):
                link(button("Send files…", primary=False, small=True), "d-send"),
                gap=14)
     toolbar = row("Toolbar", side_toggle(True), nav_btns(), crumbs("Dmytro's Laptop"), spacer(),
-                  disc_pill(), search(),
+                  disc_pill(), link(search(), "d-search"),
                   seg("Remote", "Split", active=0), gap=12)
     actions = row("Actions", T("Only folders this device shares with you are listed.", 13,
                                color=MUTE), spacer(),
@@ -954,9 +956,9 @@ def d_remote(name="Desktop / 01 Browse — remote only"):
     ))
 
 
-def d_split():
+def d_split(side=False):
     """Main window, mode 2: this PC on the left, the other PC on the right."""
-    w = (90, 110, 120)
+    w = (80, 70) if side else (90, 110, 120)
     shared_lead = F("Shared icon", T("★", 12, "Bold", SURF), layout="horizontal",
                     mainAlign="center", crossAlign="center", w=24, h=24, sizingH="fixed",
                     sizingV="fixed", cornerRadius=6, fills=[DARK])
@@ -991,32 +993,33 @@ def d_split():
                                         gap=8, sizingH="hug"), [
         row("Access", T("Your access:", 12, color=MUTE), perm_chips("Browse", "Download",
             "Upload", "Delete → Trash"), pad=[8, 14, 4, 14], gap=8),
-        frow("Name", ("Size", "Type", "Modified"), w, header=True),
-        divider(0),
-        frow("2024", ("1 204 items", "Folder", "Today"), w, checked=False, trailing="›"),
-        divider(48),
-        frow("2023", ("980 items", "Folder", "3 Jan"), w, checked=False, trailing="›"),
-        divider(48),
-        frow("IMG_0001.jpg", ("4.1 MB", "JPEG image", "12 Mar"), w, checked=True),
-        divider(48),
-        frow("IMG_0002.jpg", ("3.8 MB", "JPEG image", "12 Mar"), w, checked=True),
-        divider(48),
-        frow("VID_0003.mp4", ("812 MB", "MP4 video", "14 Mar"), w, checked=False),
-        divider(48),
-        frow("notes.txt", ("2 KB", "Text", "15 Mar"), w, checked=False),
+        *[x for i, (n, c, chk) in enumerate([
+            ("Name", ("Size", "Type", "Modified"), None),
+            ("2024", ("1 204 items", "Folder", "Today"), False),
+            ("2023", ("980 items", "Folder", "3 Jan"), False),
+            ("IMG_0001.jpg", ("4.1 MB", "JPEG image", "12 Mar"), True),
+            ("IMG_0002.jpg", ("3.8 MB", "JPEG image", "12 Mar"), True),
+            ("VID_0003.mp4", ("812 MB", "MP4 video", "14 Mar"), False),
+            ("notes.txt", ("2 KB", "Text", "15 Mar"), False),
+        ]) for x in ([divider(0 if i == 1 else 48)] if i else []) + [
+            frow(n, (c[0], c[2]) if side else c, w, header=chk is None,
+                 checked=chk, trailing="›" if c[1] == "Folder" else None)]],
     ], "6 items · 2 selected · 7.9 MB", active=True)
 
-    toolbar = row("Toolbar", side_toggle(False), T("This PC", 15, "Semi Bold"), T("⇄", 15, "Medium", MUTE),
-                  T("Dmytro's Laptop", 15, "Semi Bold"), spacer(), disc_pill(),
-                  search(),
+    toolbar = row("Toolbar", link(side_toggle(side), "d-split" if side else "d-split-side"),
+                  *([] if side else [T("This PC", 15, "Semi Bold"), T("⇄", 15, "Medium", MUTE),
+                                     T("Dmytro's Laptop", 15, "Semi Bold")]), spacer(),
+                  disc_pill(), search(120 if side else 170),
                   seg("Remote", "Split", active=1), gap=10)
     actions = row("Copy bar", button("‹  Download to This PC", small=True),
-                  T("Drag between panes to copy · Delete follows the folder's setting", 12,
-                    color=MUTE),
+                  *([] if side else [T("Drag between panes to copy · Delete follows the "
+                                       "folder's setting", 12, color=MUTE)]),
                   button("Send to Dmytro's Laptop  ›", primary=False, small=True),
                   link(button("Delete", primary=False, small=True), "d-delete"),
                   gap=12, mainAlign="center")
-    return window("Desktop / 02 Browse — split view, sidebar hidden", None, main_area(
+    return window("Desktop / 31 Browse — split view, sidebar shown" if side else
+                  "Desktop / 02 Browse — split view, sidebar hidden",
+                  "laptop" if side else None, main_area(
         toolbar,
         row("Panes", left, right, gap=12, align="min", sizingV="fill"),
         actions, transfer_bar(), gap=14,
@@ -1112,7 +1115,7 @@ def d_settings():
     ))
 
 
-def d_join():
+def d_join(err=False):
     step = lambda n, title, sub: row(  # noqa: E731
         f"Step {n}", F("Number", T(str(n), 13, "Bold", SURF), layout="horizontal",
                        mainAlign="center", crossAlign="center", w=28, h=28, sizingH="fixed",
@@ -1133,6 +1136,10 @@ def d_join():
     form = col(
         "Form", T("Join or create your group", 20, "Bold"),
         field("Group name", "home"),
+        *([join_banner("Windows Firewall blocks LocalDrop", "Allow it on private networks, "
+                       "or your devices can't find this PC.", "Allow…")] if err else []),
+        err_field("Password", "sunny1", "Too short: 6 characters. Use at least 10, or "
+                  "Generate a passphrase.", trailing="Generate") if err else
         field("Password", "••••••••••••", hint="At least 10 characters, or use a generated "
               "passphrase.", trailing="Generate"),
         field("This device's name", "Dmytro's Laptop"),
@@ -1142,8 +1149,9 @@ def d_join():
             T("Copy", 13, "Medium", MUTE), pad=16, fills=[BG], cornerRadius=12),
         row("Advanced", T("Advanced: listening port, receive folder", 13, "Medium", MUTE),
             spacer(), T("›", 14, color=MUTE)),
-        link(button("Join group", full=True), "d-looking"),
-        gap=16, pad=32, sizingH="fixed", w=440, sizingV="fill",
+        button("Join group", full=True) if err else link(button("Join group", full=True),
+                                                         "d-looking"),
+        gap=14 if err else 16, pad=32, sizingH="fixed", w=440, sizingV="fill",
     )
     dialog = row("Dialog", info, form, gap=0, align="min", sizingH="hug", sizingV="fixed",
                  h=660, fills=[SURF],
@@ -1550,7 +1558,7 @@ def d_general():
     )
     receiving = scard(
         srow("Inbox", "C:\\Users\\me\\Downloads\\LocalDrop",
-             button("Change…", primary=False, small=True)),
+             link(button("Change…", primary=False, small=True), "d-recv")),
         srow("Files from offline queues", "Sent while you were away",
              select_box("Same as Inbox")),
     )
@@ -2490,8 +2498,8 @@ def p_group():
                    divider(16),
                    list_row("Device ID", "7d20-4be1-c38a", lead=None, pad_x=16),
                    divider(16),
-                   list_row("Receive folder", "Download/LocalDrop", lead=None, trailing="›",
-                            pad_x=16),
+                   link(list_row("Receive folder", "Download/LocalDrop", lead=None,
+                                 trailing="›", pad_x=16), "recv"),
                    divider(16),
                    list_row("From offline queues", "Same as receive folder", lead=None,
                             trailing="›", pad_x=16))),
@@ -2557,7 +2565,7 @@ def d_backups():
                    col("Text", T(f"{when} · {share}", 14, "Semi Bold"), T(sub, 12, color=MUTE),
                        gap=2),
                    T(size, 13, "Medium", MUTE),
-                   button("Restore set", primary=False, small=True),
+                   link(button("Restore set", primary=False, small=True), "d-restore"),
                    T("Delete", 13, "Semi Bold", MUTE), gap=12, pad=[12, 16, 12, 16],
                    fills=[BG] if open_ else [])
 
@@ -2578,7 +2586,8 @@ def d_backups():
         row("Head", col("Text", T("Backups of replaced files", 18, "Bold"),
                         T("Kept on this PC only. Other devices can't see or delete them.", 13,
                           color=MUTE, wrap=True), gap=2),
-            button("Clear all backups", primary=False, small=True), gap=8),
+            link(button("Clear all backups", primary=False, small=True), "d-clear-backups"),
+            gap=8),
         row("Retention", T("Keep backups:", 13, color=MUTE), select_box("Until cleared"),
             T("App default", 12, color=MUTE), spacer(),
             T("1 selected · 4.2 MB", 13, "Medium", MUTE),
@@ -2610,7 +2619,8 @@ def p_backups():
                    f("VID_0146.mp4", "61 MB"),
                    row("More", T("+ 9 more", 12, "Medium", MUTE), pad=[4, 16, 6, 60]),
                    row("Set actions", button("Delete set", primary=False, small=True),
-                       button("Restore set", small=True), gap=8, mainAlign="max",
+                       link(button("Restore set", small=True), "restore"), gap=8,
+                       mainAlign="max",
                        pad=[6, 16, 12, 16]),
                    gap=0, fills=[BG])
     sets = card(bset(*BACKUP_SETS[0], open_=True), divider(64), bset(*BACKUP_SETS[1]),
@@ -2626,9 +2636,295 @@ def p_backups():
                   select_box("Until cleared"), pad=14, fills=[SURF], cornerRadius=14),
               pad=(8, 16, 0, 16)),
         section("Backup sets"), inset(sets),
-        footer=col("Footer", button("Clear all backups", primary=False, full=True), gap=0,
+        footer=col("Footer", link(button("Clear all backups", primary=False, full=True),
+                                  "clear-backups"), gap=0,
                    pad=[12, 16, 12, 16], fills=[SURF], strokes=[LINE], strokeWeight=1,
                    strokeAlign="inside"),
+        nav="Settings",
+    )
+
+
+# ---------------------------------------------------------------- P3 screens
+# 1. backups: confirm restore / clear all
+RESTORE_FILES = (("2024/IMG_0144.jpg", "4.2 MB"), ("2024/IMG_0145.jpg", "3.9 MB"),
+                 ("2024/VID_0146.mp4", "61 MB"))
+
+
+def restore_body():
+    files = card(*[x for i, (n, sz) in enumerate(RESTORE_FILES) for x in
+                   ([divider(14)] if i else []) +
+                   [row(f"File / {n}", T(n, 13, "Medium"), spacer(), T(sz, 12, color=MUTE),
+                        pad=[9, 14, 9, 14])]],
+                 row("More", T("+ 9 more files", 12, "Medium", MUTE), pad=[4, 14, 10, 14]))
+    return [
+        T("Restore 12 files to Photos?", 20, "Bold"),
+        T("Backup set from today, 14:02 (replaced by Dmytro's Laptop) · 86 MB", 13,
+          color=MUTE, wrap=True),
+        files,
+        row("Mode", icon(20, 6), col("Text", T("The current versions go to the Trash", 14,
+                                                "Medium"),
+                                      T("So restoring can be undone too. Files that were "
+                                        "deleted since come back as they were.", 12,
+                                        color=MUTE, wrap=True), gap=2),
+            pad=14, align="min", fills=[BG], cornerRadius=12),
+        check_opt("Keep this backup set", "Otherwise it's removed after restoring", True),
+    ]
+
+
+def clear_body():
+    return [
+        T("Delete all backups?", 20, "Bold"),
+        T("3 sets · 412 MB in Photos and Projects. They are deleted permanently, not moved to "
+          "the Trash. This can't be undone.", 14, color=MUTE, wrap=True),
+        col("Sets", *[info_line(f"{w} · {s} · {sz}") for w, s, _, sz in BACKUP_SETS], gap=8),
+        T("Current files in your shared folders aren't touched.", 12, color=MUTE, wrap=True),
+    ]
+
+
+def d_restore():
+    dlg = dialog_box(*restore_body(),
+                     row("Actions", spacer(), link(button("Cancel", primary=False), "back"),
+                         link(button("Restore 12 files"), "back"), gap=10), w=520)
+    return modal(d_backups(), "Desktop / 29 Restore backup", dlg)
+
+
+def d_clear_backups():
+    dlg = dialog_box(*clear_body(),
+                     row("Actions", spacer(), link(button("Cancel", primary=False), "back"),
+                         link(button("Delete 412 MB"), "back"), gap=10), w=480)
+    return modal(d_backups(), "Desktop / 30 Clear all backups", dlg)
+
+
+def p_restore():
+    return psheet("Phone / 32 Restore backup", *restore_body(),
+                  col("Actions", link(button("Restore 12 files", full=True), "back"),
+                      link(button("Cancel", primary=False, full=True), "back"), gap=8))
+
+
+def p_clear_backups():
+    return psheet("Phone / 33 Clear all backups", *clear_body(),
+                  col("Actions", link(button("Delete 412 MB", full=True), "back"),
+                      link(button("Cancel", primary=False, full=True), "back"), gap=8))
+
+
+# 2. queued files changed before a deferred job starts (SourceChanged)
+def changed_body(phone=False):
+    f = lambda n, why: row(f"File / {n}", icon(24, 6), col(  # noqa: E731
+        "Text", T(n, 13, "Medium"), T(why, 12, color=MUTE), gap=1), pad=[8, 14, 8, 14])
+    return [
+        T("3 files changed since you queued them", 20, "Bold", wrap=True),
+        T("“Photos for mom” → iPad, queued 2 h ago. iPad is online now.", 13, color=MUTE,
+          wrap=True),
+        card(f("IMG_0204.jpg", "Edited · 4.1 → 4.6 MB"), divider(52),
+             f("IMG_0207.jpg", "Edited · 3.2 → 3.3 MB"), divider(52),
+             f("IMG_0211.jpg", "Missing: deleted or moved")),
+        col("Options",
+            option("Send the current versions", "Changed files are sent as they are now; "
+                   "the missing one is skipped.", selected=True),
+            option("Skip changed files", "Send only the 45 files that didn't change."),
+            gap=8),
+    ]
+
+
+def d_changed():
+    dlg = dialog_box(*changed_body(),
+                     row("Actions", link(T("Cancel job", 13, "Semi Bold", MUTE), "back"),
+                         spacer(), link(button("Later", primary=False), "back"),
+                         link(button("Continue"), "d-transfers"), gap=10), w=520)
+    return modal(d_transfers(), "Desktop / 32 Queued files changed", dlg)
+
+
+def p_changed():
+    return psheet("Phone / 34 Queued files changed", *changed_body(True),
+                  col("Actions", link(button("Continue", full=True), "transfers"),
+                      link(button("Cancel job", primary=False, full=True), "back"), gap=8))
+
+
+# 3. search on the other device
+SEARCH_HITS = (("invoice-2024-03.pdf", "Projects / Clients / Acme", "184 KB", "12 Mar"),
+               ("invoice-2024-02.pdf", "Projects / Clients / Acme", "176 KB", "9 Feb"),
+               ("Invoices", "Projects / Finance", "38 items", "Yesterday"),
+               ("invoice_template.docx", "Projects / Templates", "42 KB", "2 Jan"))
+
+
+def d_search():
+    w = (220, 80, 90)
+    tbl = card(frow("Name", ("Folder", "Size", "Modified"), w, header=True), divider(0),
+               *[x for i, (n, path, sz, m) in enumerate(SEARCH_HITS) for x in
+                 ([divider(48)] if i else []) +
+                 [frow(n, (path, sz, m), w, checked=i == 0)]])
+    field_ = row("Search", icon(14, 4, DARK), T("invoice", 13, "Medium"), spacer(),
+                 link(T("×", 14, "Medium", MUTE, name="Clear"), "d-remote"), gap=8,
+                 pad=[7, 10, 7, 10], sizingH="fixed", w=240, fills=[SURF], strokes=[DARK],
+                 strokeWeight=1.5, cornerRadius=8)
+    toolbar = row("Toolbar", side_toggle(True), nav_btns(), crumbs("Dmytro's Laptop"), spacer(),
+                  disc_pill(), field_, seg("Remote", "Split", active=0), gap=10)
+    head = row("Head", col("Text", T("4 results for “invoice”", 20, "Bold"),
+                           T("In folders shared with you · names only", 13, color=MUTE),
+                           gap=2), spacer(),
+               row("Scope", chip("All folders", True), chip("Photos"), chip("Projects"),
+                   chip("Music"), gap=6, sizingH="hug"), gap=12)
+    actions = row("Actions", T("1 selected · 184 KB", 13, "Semi Bold"), spacer(),
+                  button("Show in folder", primary=False, small=True),
+                  link(button("Download", small=True), "d-transfers"), gap=8)
+    note = T("The search runs on Dmytro's Laptop. Folders it doesn't share with you are never "
+             "searched.", 12, color=MUTE, wrap=True)
+    return window("Desktop / 33 Search on other device", "laptop", main_area(
+        toolbar, head, tbl, actions, note, fill_v(), transfer_bar(), gap=14))
+
+
+def p_search():
+    rows = card(*[x for i, (n, path, sz, m) in enumerate(SEARCH_HITS) for x in
+                  ([divider(100)] if i else []) +
+                  [p_row(n, f"{path} · {sz}", checked=i == 0,
+                         trailing="›" if n == "Invoices" else None)]])
+    bar = row("Search bar", link(T("‹", 22, "Medium", name="Up"), "back"),
+              row("Field", icon(16, 4, DARK), T("invoice", 15, "Medium"), spacer(),
+                  T("×", 16, "Medium", MUTE), gap=8, pad=[9, 12, 9, 12], fills=[SURF],
+                  cornerRadius=10, strokes=[DARK], strokeWeight=1.5),
+              gap=10, pad=[10, 16, 6, 16])
+    return phone(
+        "Phone / 35 Search on other device",
+        panel_tabs(1), bar,
+        inset(row("Scope", chip("All folders", True), chip("Photos"), chip("Projects"),
+                  chip("Music"), gap=6), pad=(4, 16, 6, 16)),
+        section("4 results on Dmytro's Laptop"),
+        inset(rows, pad=(0, 12, 0, 12)),
+        footer=cmd_bar(("Copy ← left", True, "transfers"), ("Show in folder", False),
+                       ("Delete", False, "delete")),
+        nav="Files",
+    )
+
+
+# 4. phone history (finished jobs)
+def p_history():
+    def h(name, sub, state):
+        return row(f"Hist / {name}", icon(32, 8), col("Text", T(name, 14, "Medium"),
+                                                       T(sub, 12, color=MUTE), gap=2),
+                   chip(state, state == "Failed"), pad=[10, 14, 10, 14])
+    today = card(h("Holiday 2024", "To Dmytro's Laptop · 1 820 files · 3.1 GB · 10:02", "Done"),
+                 divider(60),
+                 h("Notes.md", "From Dmytro's Laptop · 4 KB · 09:12", "Done"), divider(60),
+                 h("Docs", "To Work MacBook · 240 of 242 · 08:55", "2 failed"))
+    yday = card(h("Screenshots", "To Desk PC · 36 files · 18:40", "Done"), divider(60),
+                h("old-build.iso", "To Work MacBook · stopped, 41%", "Cancelled"),
+                divider(60),
+                h("Contracts", "From Work MacBook · 11 items", "Declined"))
+    return phone(
+        "Phone / 36 Transfer history",
+        app_bar("History", "Last 30 days · on this phone", back=True),
+        inset(row("Filter", chip("All", True), chip("Sent"), chip("Received"), chip("Problems"),
+                  gap=8), pad=(0, 20, 4, 20)),
+        section("Today"), inset(link(today, "details")),
+        section("Yesterday"), inset(yday),
+        inset(T("Only the list is removed when you clear it; received files stay.", 12,
+                color=MUTE, wrap=True), pad=(12, 20, 0, 20)),
+        footer=col("Footer", button("Clear history", primary=False, full=True), gap=0,
+                   pad=[12, 16, 12, 16], fills=[SURF], strokes=[LINE], strokeWeight=1,
+                   strokeAlign="inside"),
+        nav="Transfers",
+    )
+
+
+# 5. join errors
+def err_field(label, value, error, trailing=None):
+    box = row("Input", T(value, 15), spacer(),
+              *( [T(trailing, 13, "Medium", MUTE)] if trailing else []),
+              pad=[12, 14, 12, 14], fills=[SURF], strokes=[DARK], strokeWeight=2,
+              cornerRadius=10)
+    return col(f"Field / {label}", T(label, 13, "Medium", MUTE), box,
+               row("Error", F("Bang", T("!", 11, "Bold", SURF), layout="horizontal",
+                                mainAlign="center", crossAlign="center", w=16, h=16,
+                                sizingH="fixed", sizingV="fixed", cornerRadius=8,
+                                fills=[DARK]),
+                   T(error, 12, "Medium", wrap=True), gap=6, align="min"), gap=6)
+
+
+def join_banner(title, body, action, to=None):
+    b = button(action, primary=False, small=True)
+    return row("Banner", icon(20, 6, DARK), col("Text", T(title, 13, "Semi Bold"),
+                                                T(body, 12, color=MUTE, wrap=True), gap=2),
+               link(b, to) if to else b, pad=12, align="min", cornerRadius=12,
+               strokes=[DARK], strokeWeight=1.5, fills=[SURF])
+
+
+def d_join_error():
+    win = d_join(err=True)
+    win["name"] = "Desktop / 34 Join — errors"
+    return win
+
+
+def p_join_error():
+    return phone(
+        "Phone / 37 Join — errors",
+        col("Hero", T("Join or create your group", 24, "Bold", wrap=True), gap=0,
+            pad=[24, 24, 12, 24]),
+        inset(join_banner("Local network access is off", "LocalDrop can't find your devices "
+                          "without it. iOS: Settings › Privacy › Local Network.", "Open"),
+              pad=(0, 20, 12, 20)),
+        col("Form",
+            field("Group name", "home"),
+            err_field("Password", "sunny1", "Too short: 6 characters. Use at least 10, or "
+                      "Generate a passphrase.", trailing="Generate"),
+            field("This device's name", "Pixel 8"),
+            trust_row(),
+            gap=14, pad=[0, 24, 0, 24]),
+        inset(T("Names and passwords are case-sensitive. If another device shows a different "
+                "fingerprint, one of them is typed differently.", 12, color=MUTE, wrap=True),
+              pad=(14, 24, 0, 24)),
+        footer=col("Footer", button("Join group", full=True), gap=0, pad=[16, 24, 34, 24]),
+    )
+
+
+# 6. receive folder pickers
+def recv_warnings():
+    return [
+        join_banner("This folder is synced by OneDrive", "OneDrive may start uploading files "
+                    "while they're still arriving. Hidden partial files help, but not always.",
+                    "Pick another"),
+        row("Fat", icon(20, 6), T("Drive E: is FAT32: files of 4 GB or more can't be received "
+                                  "there.", 12, color=MUTE, wrap=True), pad=12, align="min",
+            cornerRadius=12, fills=[BG]),
+    ]
+
+
+def d_recv():
+    dlg = dialog_box(
+        T("Where received files go", 20, "Bold"),
+        field("Inbox", "C:\\Users\\me\\OneDrive\\Downloads\\LocalDrop", trailing="Choose…",
+              hint="128 GB free on C:"),
+        recv_warnings()[0],
+        row("Queue", col("Text", T("Files from offline queues", 14, "Medium"),
+                         T("While you were away", 12, color=MUTE), gap=2),
+            spacer(), select_box("Same as Inbox"), gap=10),
+        row("Sub", checkbox(True), T("Put each job in its own subfolder when it has more than "
+                                     "one item", 13, wrap=True), gap=10),
+        T("Files sent into a shared folder go there instead. Devices can have their own Inbox "
+          "(Settings › Devices).", 12, color=MUTE, wrap=True),
+        row("Actions", spacer(), link(button("Cancel", primary=False), "back"),
+            link(button("Save"), "back"), gap=10),
+        w=560)
+    return modal(d_general(), "Desktop / 35 Receive folder", dlg)
+
+
+def p_recv():
+    opts = col("Options",
+               option("Download/LocalDrop", "Default. Shows up in Files and in the gallery.",
+                      selected=True),
+               option("Another folder…", "Pick it in the system folder picker; LocalDrop "
+                      "keeps access only to that folder."),
+               option("SD card / LocalDrop", "88 GB free · FAT32: files under 4 GB only"),
+               gap=8)
+    return phone(
+        "Phone / 38 Receive folder",
+        app_bar("Receive folder", "Where files sent to this phone go", back=True),
+        inset(opts),
+        section("From offline queues"),
+        inset(card(default_row("While you were away", "Same folder"))),
+        inset(row("Sub", checkbox(True), T("Put each job in its own subfolder", 13), gap=10),
+              pad=(14, 20, 0, 20)),
+        inset(T("Files sent into one of your shared folders go there instead.", 12,
+                color=MUTE, wrap=True), pad=(12, 20, 0, 20)),
         nav="Settings",
     )
 
@@ -2694,6 +2990,20 @@ SCREENS = {
     "notifs": (p_notifs, 28),
     "perms": (p_perms, 29),
     "local-folder": (p_local_folder, 30),
+    "d-restore": (d_restore, 128),
+    "d-clear-backups": (d_clear_backups, 129),
+    "d-changed": (d_changed, 130),
+    "d-search": (d_search, 131),
+    "d-split-side": (lambda: d_split(side=True), 132),
+    "d-join-error": (d_join_error, 133),
+    "d-recv": (d_recv, 134),
+    "restore": (p_restore, 31),
+    "clear-backups": (p_clear_backups, 32),
+    "changed": (p_changed, 33),
+    "search": (p_search, 34),
+    "history": (p_history, 35),
+    "join-error": (p_join_error, 36),
+    "recv": (p_recv, 37),
 }
 
 
@@ -2757,7 +3067,9 @@ FLOWS = {"Desktop": "d-join", "Phone": "join",
          "Desktop · new network": "d-new-net", "Phone · new network": "new-net",
          "Desktop · incoming request": "d-incoming", "Phone · incoming request": "incoming",
          "Desktop · key changed": "d-key", "Phone · key changed": "key",
-         "Desktop · tray & notifications": "d-tray", "Phone · notifications": "notifs"}
+         "Desktop · tray & notifications": "d-tray", "Phone · notifications": "notifs",
+         "Desktop · queued files changed": "d-changed", "Phone · queued files changed": "changed",
+         "Desktop · join errors": "d-join-error", "Phone · join errors": "join-error"}
 
 
 def _text(m):
