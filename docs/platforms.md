@@ -16,6 +16,8 @@ handled by the app layer (Flutter + platform channels) and passed into the node.
 | Send folders | drag & drop, picker | drag & drop, picker | drag & drop, picker | in-app folder picker (SAF tree) | in-app document picker |
 | Shares (whitelist) | paths | paths | paths (bookmarks if sandboxed) | SAF tree URIs | security-scoped bookmarks |
 | `delete = Trash` | Recycle Bin | freedesktop Trash | Trash | app trash | app trash |
+| Wi-Fi name (SSID) | Location on (24H2+) | NetworkManager | Location Services | fine location + location on | entitlement + precise location |
+| Network fingerprint without location | gateway MAC, NLM profile | gateway MAC | gateway MAC | subnet + gateway IP only | subnet + gateway IP only |
 
 ## File access abstraction
 
@@ -42,6 +44,8 @@ request and iOS apps have no trash API, so on mobile "Trash" means the **app tra
 - First listen triggers the Windows Defender Firewall prompt; the installer should add
   rules for the app (UDP for QUIC, mDNS 5353, broadcast 47473).
 - Networks marked *Public* block inbound by default — show a hint in the UI.
+- Hyper-V / WSL / Docker create `vEthernet` adapters; they are ignored by default
+  ([networks.md](networks.md#interfaces)).
 - Drag & drop of files and folders onto the window (Flutter `desktop_drop` or native
   `IDropTarget`); "Send to → LocalDrop" shortcut later.
 
@@ -63,6 +67,9 @@ request and iOS apps have no trash API, so on mobile "Trash" means the **app tra
   `ACCESS_NETWORK_STATE`, `FOREGROUND_SERVICE` (+ type `dataSync`), `POST_NOTIFICATIONS`,
   `NEARBY_WIFI_DEVICES` (API 33+, with `neverForLocation`).
 - Acquire a `WifiManager.MulticastLock` while discovering.
+- Bind sockets to the Wi-Fi `Network` so LAN traffic never goes over mobile data. Wi-Fi
+  names need `ACCESS_FINE_LOCATION`, asked only if the user wants them
+  ([networks.md](networks.md#getting-the-wi-fi-name)).
 - Share target for `ACTION_SEND` / `ACTION_SEND_MULTIPLE` (any MIME type). Files arrive
   as `content://` URIs: sent directly if the peer is online, copied into cache when queued
   for an offline device.
@@ -73,6 +80,8 @@ request and iOS apps have no trash API, so on mobile "Trash" means the **app tra
 ## iOS
 
 - `Info.plist`: `NSLocalNetworkUsageDescription`, `NSBonjourServices = [_localdrop._udp]`.
+- Wi-Fi names need the "Access Wi-Fi Information" entitlement and precise location
+  (`NSLocationWhenInUseUsageDescription`); optional, see [networks.md](networks.md).
 - Raw multicast/broadcast sockets require the `com.apple.developer.networking.multicast`
   entitlement (granted by Apple on request). Until then, discovery on iOS goes through
   Bonjour (`NWBrowser`/`NWListener`) in Swift, forwarding records to the Rust node.

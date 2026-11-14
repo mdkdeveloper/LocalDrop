@@ -28,6 +28,7 @@ Linux and macOS — with no cloud, no account, and no strangers.
 | [Architecture](docs/architecture.md) | Layers, crates, data flow, FFI boundary |
 | [Security](docs/security.md) | Threat model, key derivation, handshake, limitations |
 | [Discovery](docs/discovery.md) | mDNS and broadcast announcements |
+| [Networks](docs/networks.md) | Discovery switch, interfaces, remembered networks |
 | [Transfers](docs/transfers.md) | Jobs, bundles, pair queues, performance |
 | [Shares](docs/shares.md) | Whitelist, permissions, conflicts, backups |
 | [Receiving](docs/receiving.md) | Temp files, verify-then-rename, crash recovery |

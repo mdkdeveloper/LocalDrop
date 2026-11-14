@@ -19,6 +19,10 @@ of jobs/manifests/units; `queue_send` hashes files at enqueue time and handles f
 - mDNS backend (`mdns-sd`), broadcast backend, merge + `Lost` timeouts.
 - Persistent config + identity (`localdrop init` saves state).
 - `localdrop run` / `localdrop peers` show group members on the LAN.
+- Interface enumeration and classification (ignore virtual/VPN), per-interface mDNS and
+  directed broadcast, discovery on/off, restart on network change.
+- Network fingerprints and remembered-network rules (Discover / Don't / Ask); SSID via
+  platform hooks later in M6. See [networks.md](networks.md).
 
 ## M2 — Authenticated connections
 

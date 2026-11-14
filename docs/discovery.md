@@ -3,6 +3,10 @@
 Discovery finds *claimed* members of our group on the LAN. It never grants trust; every
 connection is authenticated by the handshake ([security.md](security.md)).
 
+Discovery can be switched off from the main screen, and it runs only on the *active
+networks*: real Wi-Fi/Ethernet interfaces (virtual and VPN adapters are ignored by
+default) whose remembered network rule allows it. See [networks.md](networks.md).
+
 ## Announcement format (v1)
 
 Implemented in `localdrop-discovery::announcement`. 51 bytes, big-endian:
@@ -42,9 +46,11 @@ same, so it is randomized at startup (`listen_port = 0`).
 Many routers, guest networks and some Android devices drop multicast. As a fallback,
 each device:
 
-- sends the raw 51-byte announcement every 5 s (with jitter) to `255.255.255.255:47473`
-  and to the directed broadcast address of each IPv4 interface;
-- listens on UDP `47473` and treats the packet's source IP as the peer address.
+- sends the raw 51-byte announcement every 5 s (with jitter) to the directed broadcast
+  address of each active IPv4 interface (e.g. `192.168.1.255:47473`), from a socket bound
+  to that interface;
+- listens on UDP `47473` and treats the packet's source IP as the peer address, ignoring
+  sources outside the active subnets.
 
 ### Manual address
 
