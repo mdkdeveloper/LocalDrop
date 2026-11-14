@@ -1,0 +1,23 @@
+[package]
+name = "localdrop-cli"
+description = "Command-line front-end for LocalDrop (development and testing)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "localdrop"
+path = "src/main.rs"
+
+[dependencies]
+localdrop-core.workspace = true
+localdrop-node.workspace = true
+localdrop-store.workspace = true
+clap.workspace = true
+tokio.workspace = true
+tracing-subscriber.workspace = true
+
+[lints]
+workspace = true

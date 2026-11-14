@@ -1,0 +1,22 @@
+[package]
+name = "localdrop-core"
+description = "Core types for LocalDrop: device identity, group keys, policies, errors."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+argon2.workspace = true
+hkdf.workspace = true
+sha2.workspace = true
+ed25519-dalek.workspace = true
+rand.workspace = true
+blake3.workspace = true
+zeroize.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

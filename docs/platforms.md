@@ -1,0 +1,99 @@
+# Platforms
+
+The Rust core (`localdrop-node`) is identical everywhere. Platform-specific concerns are
+handled by the app layer (Flutter + platform channels) and passed into the node.
+
+## Summary
+
+| | Windows | Linux | macOS | Android | iOS |
+|---|---|---|---|---|---|
+| mDNS | ✔ (firewall prompt) | ✔ (Avahi may coexist) | ✔ | ✔ needs multicast lock | ✔ needs Local Network permission |
+| UDP broadcast fallback | ✔ | ✔ | ✔ | ✔ | limited (multicast entitlement) |
+| Background receive | tray app | tray / systemd user service | menu bar / login item | foreground service | foreground only (+ short BG tasks) |
+| Outbox storage | reference | reference | reference | copy to cache | copy to cache |
+| Secure key storage | DPAPI | Secret Service / `0600` file | Keychain | Keystore-wrapped file | Keychain |
+| Start a send | drag & drop, picker | drag & drop, picker | drag & drop, picker | Share sheet, picker | Share extension, picker |
+| Send folders | drag & drop, picker | drag & drop, picker | drag & drop, picker | in-app folder picker (SAF tree) | in-app document picker |
+| Shares (whitelist) | paths | paths | paths (bookmarks if sandboxed) | SAF tree URIs | security-scoped bookmarks |
+| `delete = Trash` | Recycle Bin | freedesktop Trash | Trash | app trash | app trash |
+
+## File access abstraction
+
+On desktop the node uses plain paths. On mobile, shares and pickers give URIs, not
+paths, so the node accesses files through a `FileAccess` trait that the app implements:
+
+- **Android:** Kotlin side resolves SAF/MediaStore URIs and hands the Rust side a raw file
+  descriptor (`ContentResolver.openFileDescriptor` → `detachFd`) for reading/writing, so
+  bulk I/O still happens in Rust without copying through Dart. Listing, creating and
+  deleting go through `DocumentsContract` calls.
+- **iOS / sandboxed macOS:** security-scoped bookmarks are stored per share; the app
+  starts access before an operation and passes a path to Rust.
+
+## Trash
+
+`delete = Trash` uses the OS trash where an unattended API exists (the `trash` crate on
+Windows, macOS, Linux). Android's MediaStore trash requires a user confirmation per
+request and iOS apps have no trash API, so on mobile "Trash" means the **app trash**:
+`.localdrop/trash/` inside the share, shown and cleaned in the same browser as
+[backups](shares.md#backups), with the same retention settings.
+
+## Windows
+
+- First listen triggers the Windows Defender Firewall prompt; the installer should add
+  rules for the app (UDP for QUIC, mDNS 5353, broadcast 47473).
+- Networks marked *Public* block inbound by default — show a hint in the UI.
+- Drag & drop of files and folders onto the window (Flutter `desktop_drop` or native
+  `IDropTarget`); "Send to → LocalDrop" shortcut later.
+
+## Linux
+
+- `mdns-sd` binds UDP 5353 alongside Avahi (SO_REUSEPORT). If that fails, fall back to
+  broadcast.
+- Distribution: AppImage / Flatpak (Flatpak needs `--share=network`).
+
+## macOS
+
+- Since macOS 15, Local Network privacy applies to apps: add
+  `NSLocalNetworkUsageDescription` and `NSBonjourServices = [_localdrop._udp]`.
+- Sandboxed builds need `com.apple.security.network.client` and `.server`.
+
+## Android
+
+- Permissions: `INTERNET`, `ACCESS_WIFI_STATE`, `CHANGE_WIFI_MULTICAST_STATE`,
+  `ACCESS_NETWORK_STATE`, `FOREGROUND_SERVICE` (+ type `dataSync`), `POST_NOTIFICATIONS`,
+  `NEARBY_WIFI_DEVICES` (API 33+, with `neverForLocation`).
+- Acquire a `WifiManager.MulticastLock` while discovering.
+- Share target for `ACTION_SEND` / `ACTION_SEND_MULTIPLE` (any MIME type). Files arrive
+  as `content://` URIs: sent directly if the peer is online, copied into cache when queued
+  for an offline device.
+- Folders cannot be shared via the share sheet; the app offers a folder picker
+  (`ACTION_OPEN_DOCUMENT_TREE`) and keeps persistable URI permissions for shares.
+- The inbox is `Download/LocalDrop` via MediaStore; other receive folders and shares use SAF.
+
+## iOS
+
+- `Info.plist`: `NSLocalNetworkUsageDescription`, `NSBonjourServices = [_localdrop._udp]`.
+- Raw multicast/broadcast sockets require the `com.apple.developer.networking.multicast`
+  entitlement (granted by Apple on request). Until then, discovery on iOS goes through
+  Bonjour (`NWBrowser`/`NWListener`) in Swift, forwarding records to the Rust node.
+  The announcement format is the same.
+- No background networking beyond short tasks; deferred delivery to/from iOS happens
+  while the app is open.
+- Share extension for "Send with LocalDrop"; files are copied into the app group container
+  (the extension has tight memory/time limits, so it only hands files over and the main
+  app sends them).
+- Folders: in-app document picker (`UIDocumentPickerViewController` with folders);
+  shares are stored as security-scoped bookmarks.
+- The inbox is the app's `Documents/Inbox`, visible in the Files app
+  (`UIFileSharingEnabled`, `LSSupportsOpeningDocumentsInPlace`).
+
+## Flutter integration plan
+
+- `app/` — Flutter project; `rust/` bridge crate generated by `flutter_rust_bridge` that
+  depends on `localdrop-node`.
+- Native builds: `cargo-ndk` (Android), XCFramework (iOS/macOS), regular cdylib on
+  desktop — handled by the FRB / `cargokit` tooling.
+- The app owns: file pickers, drag & drop, share targets, notifications, foreground
+  service, secure storage, iOS Bonjour shim, the mobile `FileAccess` implementation.
+  The node owns: discovery logic, crypto, transfers, queues, shares and permission
+  checks, conflicts, backups.

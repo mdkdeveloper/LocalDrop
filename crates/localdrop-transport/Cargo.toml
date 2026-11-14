@@ -1,0 +1,15 @@
+[package]
+name = "localdrop-transport"
+description = "Authenticated QUIC transport and membership handshake for LocalDrop."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+localdrop-core.workspace = true
+localdrop-protocol.workspace = true
+
+[lints]
+workspace = true

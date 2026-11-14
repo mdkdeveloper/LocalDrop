@@ -1,0 +1,47 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/mdkdeveloper/LocalDrop"
+rust-version = "1.85"
+
+[workspace.dependencies]
+# Internal crates
+localdrop-core = { path = "crates/localdrop-core" }
+localdrop-discovery = { path = "crates/localdrop-discovery" }
+localdrop-protocol = { path = "crates/localdrop-protocol" }
+localdrop-transport = { path = "crates/localdrop-transport" }
+localdrop-store = { path = "crates/localdrop-store" }
+localdrop-node = { path = "crates/localdrop-node" }
+
+# Crypto
+argon2 = "0.5"
+hkdf = "0.12"
+sha2 = "0.10"
+chacha20poly1305 = "0.10"
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+rand = "0.8"
+blake3 = "1"
+zeroize = { version = "1", features = ["derive"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+postcard = { version = "1", features = ["use-std"] }
+
+# Runtime / app
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync"] }
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+clap = { version = "4", features = ["derive"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
