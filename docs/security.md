@@ -122,8 +122,39 @@ Default is auto-accept from group members (needed for unattended send-ahead). Th
 can switch the group or individual devices to **Ask**; jobs then wait for a decision
 (`JobPending`) without blocking the sender's queue.
 
+- **Request dialog** (desktop: dialog + notification; mobile: sheet, or a notification
+  when the app is in the background): who sends, job name, file count and size,
+  destination, **Decline** / **Accept**.
+- **The request waits up to 10 minutes** (`ACCEPT_TIMEOUT`). Without an answer the
+  receiver declines it with `JobReject{NoAnswer}`. A live job then shows *No answer* on
+  the sender with **Send again**; a deferred job returns to *Waiting* and is offered
+  again the next time the device connects (not in the same session), so an unattended
+  device is not asked over and over.
+- **Always accept from *device*** (a checkbox in the dialog, off by default): accepting
+  with it checked sets that device's override to **Auto** in *Settings › Devices*. It can
+  be switched back there.
+
 ## Changing the password
 
 Changing the password creates a new group key; devices that don't know the new password
 drop out. Known-device records are kept, but a device only becomes reachable again after
 it authenticates with the new password.
+
+- The dialog asks for the **current password** and checks it by deriving the key again
+  and comparing with the stored `GroupKey` (nothing else is stored to compare with). This
+  stops someone at an unlocked device from silently splitting the group.
+- It shows the old and new fingerprint; the user enters the new password on each device
+  they keep. This is also how a lost or unwanted device is removed: it simply isn't given
+  the new password.
+- Pair queues stay; jobs are delivered once the peer has joined with the new password.
+
+## Leaving the group
+
+Leaving deletes the `GroupKey` from secure storage; discovery and connections stop and the
+app returns to the join screen. Options in the dialog:
+
+- **Keep the send queue** (default on): queued jobs stay and are delivered if the device
+  joins the same group again (same name + password → same key, peers still pinned).
+- **Forget known devices** (default off): drop pinned keys and device names.
+
+Files on disk, shared-folder settings, backups and trusted networks are not touched.

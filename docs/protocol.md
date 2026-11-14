@@ -44,13 +44,15 @@ listings) are split across several frames.
 |---|---|---|
 | `JobOffer{job_id, name, destination, total_files, total_bytes, deferred}` | sender | Proposes a job. `destination = Inbox \| Share{share_id, path}`. `deferred` marks jobs from the offline queue (go to `deferred_inbox_dir` when `Inbox`). |
 | `ManifestChunk{job_id, entries[], last}` | sender | Manifest: `{index, path, kind: File\|Dir, size, mtime}`. Paths relative, `/`-separated. |
-| `JobPending{job_id, reason: AwaitingAccept\|AwaitingConflictDecision}` | receiver | Receiver waits for a human. Sender pauses the job and serves other jobs. |
+| `JobPending{job_id, reason: AwaitingAccept\|AwaitingConflictDecision\|LowSpace{free, needed}}` | receiver | Receiver waits for a human (accept requests time out after 10 min, see [security.md](security.md#accept-policy)) or for free space ([transfers.md](transfers.md#running-out-of-space)). Sender pauses the job and serves other jobs. A later `JobAccept{resume}` continues it. |
 | `ConflictReport{job_id, conflicts[], allowed_modes[]}` | receiver | Files that already exist (and differ), and the modes the owner's permissions allow. Shown in the sender's dialog. |
 | `ConflictDecision{job_id, mode}` | either | First valid decision wins; the receiver confirms with `JobAccept`. Either side may also answer `JobCancel`. |
 | `JobAccept{job_id, skip[], resume}` | receiver | Start/continue sending. `skip`: manifest indices not to send (identical or `KeepExisting`). `resume`: `{unit, file_index, segment}` to continue from. |
 | `SegmentFailed{job_id, file_index, segment}` | receiver | Segment hash mismatch; sender re-sends that segment after the current unit (as a one-segment large unit). |
-| `JobReject{job_id, reason}` | receiver | `Declined`, `NoSpace`, `Denied` (no permission), `Other`. |
-| `UnitDone{job_id, unit, files_ok[], files_failed[]}` | receiver | Unit written, synced and verified. Failed files (hash mismatch) are re-sent by the sender. |
+| `JobReject{job_id, reason}` | receiver | `Declined`, `NoAnswer` (accept request timed out), `NoSpace`, `Denied` (no permission), `Other`. |
+| `FileSkipped{job_id, file_index, reason}` | sender | The sender could not send a file of the current unit: `SourceChanged`, `SourceLocked`, `SourceMissing`, `ReadError`. The receiver drops its temp file; the rest of the unit continues. |
+| `UnitDone{job_id, unit, files_ok[], files_failed[{index, reason}]}` | receiver | Unit written, synced and verified. `reason`: `HashMismatch` (re-sent by the sender, up to 3 times), `TargetLocked`, `WriteError`. |
+| `FileRetry{job_id, file_indices[]}` | sender | User pressed *Retry* for failed files; they are sent as a new unit at the end of the job. |
 | `JobDone{job_id}` | receiver | All files written; mirror deletions (if any) done. |
 | `JobPause` / `JobResume` / `JobCancel {job_id}` | either | User actions from the queue UI. Cancel is final on both sides. |
 | `Progress{job_id, bytes_written}` | receiver | Optional, ~4 per second, so the sender shows the real written progress. |

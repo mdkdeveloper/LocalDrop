@@ -253,7 +253,7 @@ def p_join():
             T("Check that this code is the same on every device you add.", 12, color=MUTE,
               wrap=True),
             gap=8, pad=[18, 24, 0, 24]),
-        footer=col("Footer", link(button("Join group", full=True), "files-remote"), gap=0,
+        footer=col("Footer", link(button("Join group", full=True), "looking"), gap=0,
                    pad=[16, 24, 34, 24]),
     )
 
@@ -314,7 +314,8 @@ def cmd_bar(*items):
     """TC-style bottom command bar for the current selection."""
     cells = [col(f"Cmd / {n}", icon(22, 6, DARK if primary else BLOCK),
                  T(n, 11, "Semi Bold" if primary else "Medium", INK if primary else MUTE),
-                 gap=4, crossAlign="center", sizingH="fill") for n, primary in items]
+                 gap=4, crossAlign="center", sizingH="fill") for n, primary, *_ in items]
+    cells = [link(c, it[2]) if len(it) > 2 else c for c, it in zip(cells, items)]
     return row("Command bar", *cells, gap=0, pad=[8, 8, 8, 8], fills=[SURF], strokes=[LINE],
                strokeWeight=1, strokeAlign="inside", align="min")
 
@@ -344,7 +345,7 @@ def p_files_remote():
         footer=col("Bottom", row("Selection", T("2 selected · 7.9 MB", 13, "Semi Bold"),
                                  spacer(), T("Select all", 13, "Medium", MUTE),
                                  pad=[8, 16, 8, 16], fills=[BG]),
-                   cmd_bar(("Copy ← left", True), ("Move ← left", False), ("Delete", False),
+                   cmd_bar(("Copy ← left", True), ("Move ← left", False), ("Delete", False, "delete"),
                            ("Rename", False), ("More", False)), gap=0),
         nav="Files",
     )
@@ -472,7 +473,8 @@ def p_folders():
         section("Receiving"),
         inset(card(list_row("Inbox", "Download/LocalDrop · files sent to you",
                             trailing="›", pad_x=16))),
-        footer=row("FAB row", spacer(), button("+  Add folder"), pad=[0, 20, 16, 20]),
+        footer=row("FAB row", spacer(), link(button("+  Add folder"), "add-share"),
+                   pad=[0, 20, 16, 20]),
         nav="Folders",
     )
 
@@ -590,8 +592,8 @@ def job(title, sub, frac=None, state=None, action=None, meta=None):
 
 def p_transfers():
     laptop = card(
-        job("Holiday 2024", "Folder · 412 of 1 820 files", 0.34, meta="1.1 of 3.1 GB · "
-            "11.4 MB/s · 3 min left", action="×"),
+        link(job("Holiday 2024", "Folder · 412 of 1 820 files", 0.34, meta="1.1 of 3.1 GB · "
+                 "11.4 MB/s · 3 min left", action="×"), "details"),
         divider(14),
         job("contract.pdf", "2.4 MB", meta="Next in queue", action="×"),
     )
@@ -711,16 +713,19 @@ def sidebar(active, disc=True):
         row("Brand", icon(28, 8, DARK), col("Text", T("LocalDrop", 15, "Bold"),
                                             T("home · 3fa2-91c0", 12, color=MUTE), gap=0),
             pad=[4, 6, 12, 6]),
-        *([T("DEVICES", 11, "Semi Bold", MUTE, letterSpacing=0.6),
-           dev("Dmytro's Laptop", "Online", True, active == "laptop", to="d-remote"),
-           dev("Desk PC", "Online · receiving", True),
-           T("KNOWN · OFFLINE", 11, "Semi Bold", MUTE, letterSpacing=0.6)] if disc else
-          [T("KNOWN · NOT SEARCHING", 11, "Semi Bold", MUTE, letterSpacing=0.6),
-           dev("Dmytro's Laptop", "Status unknown", False, active == "laptop"),
-           dev("Desk PC", "Status unknown", False)]),
-        dev("iPad", "2 h ago · 3 queued", False, active == "ipad", t=chip("3"),
-            to="d-offline"),
-        dev("Work MacBook", "Yesterday", False),
+        *(([T("DEVICES", 11, "Semi Bold", MUTE, letterSpacing=0.6),
+            side_item("Searching on Home…", True, lead=icon(28, 14, BLOCK),
+                      sub="No devices yet")]) if disc == "empty" else
+          ([T("DEVICES", 11, "Semi Bold", MUTE, letterSpacing=0.6),
+            dev("Dmytro's Laptop", "Online", True, active == "laptop", to="d-remote"),
+            dev("Desk PC", "Online · receiving", True),
+            T("KNOWN · OFFLINE", 11, "Semi Bold", MUTE, letterSpacing=0.6)] if disc else
+           [T("KNOWN · NOT SEARCHING", 11, "Semi Bold", MUTE, letterSpacing=0.6),
+            dev("Dmytro's Laptop", "Status unknown", False, active == "laptop"),
+            dev("Desk PC", "Status unknown", False)]) + [
+            dev("iPad", "2 h ago · 3 queued", False, active == "ipad", t=chip("3"),
+                to="d-offline"),
+            dev("Work MacBook", "Yesterday", False)]),
         F("Fill", layout="vertical", sizingH="fill", sizingV="fill"),
         side_item("Transfers", active == "transfers", trailing=chip("2", True),
                   to="d-transfers"),
@@ -928,7 +933,7 @@ def d_remote(name="Desktop / 01 Browse — remote only"):
                                 sizingV="hug"),
                col("Text", T("Dmytro's Laptop", 22, "Bold"),
                    T("Windows · Online · shares 3 folders with you", 13, color=MUTE), gap=2),
-               button("Send files…", primary=False, small=True),
+               link(button("Send files…", primary=False, small=True), "d-send"),
                gap=14)
     toolbar = row("Toolbar", side_toggle(True), nav_btns(), crumbs("Dmytro's Laptop"), spacer(),
                   disc_pill(), search(),
@@ -938,9 +943,10 @@ def d_remote(name="Desktop / 01 Browse — remote only"):
                   T("1 selected · 412 items", 13, "Medium", MUTE),
                   button("Open", primary=False, small=True), button("Download", small=True),
                   gap=8)
-    hint = row("Drop hint", icon(20, 6), T("Drop files on Inbox or on a folder you can upload "
-               "to. If the device goes offline, they wait in the queue.", 13, color=MUTE,
-               wrap=True), pad=14, cornerRadius=12, strokes=[LINE], strokeWeight=1)
+    hint = link(row("Drop hint", icon(20, 6), T("Drop files on Inbox or on a folder you can "
+                    "upload to. If the device goes offline, they wait in the queue.", 13,
+                    color=MUTE, wrap=True), pad=14, cornerRadius=12, strokes=[LINE],
+                    strokeWeight=1), "d-drop")
     return window(name, "laptop", main_area(
         toolbar, head, actions, tbl, hint, fill_v(), transfer_bar(), gap=16,
     ))
@@ -1006,7 +1012,7 @@ def d_split():
                   T("Drag between panes to copy · Delete follows the folder's setting", 12,
                     color=MUTE),
                   button("Send to Dmytro's Laptop  ›", primary=False, small=True),
-                  button("Delete", primary=False, small=True),
+                  link(button("Delete", primary=False, small=True), "d-delete"),
                   gap=12, mainAlign="center")
     return window("Desktop / 02 Browse — split view, sidebar hidden", None, main_area(
         toolbar,
@@ -1036,7 +1042,7 @@ def d_offline():
                                 sizingV="hug"),
                col("Text", T("iPad", 22, "Bold"),
                    T("iPadOS · Offline · last seen 2 h ago", 13, color=MUTE), gap=2),
-               button("Add files…", primary=False, small=True),
+               link(button("Add files…", primary=False, small=True), "d-send"),
                button("Clear queue", primary=False, small=True), gap=14)
     note = row("Offline note", icon(20, 6), col("Text",
                T("iPad is offline, so its folders aren't available.", 14, "Semi Bold"),
@@ -1063,7 +1069,7 @@ def d_settings():
     shares = col(
         "Share list",
         row("Head", T("Shared folders", 15, "Semi Bold"), spacer(),
-            button("+ Add folder", primary=False, small=True)),
+            link(button("+ Add folder", primary=False, small=True), "d-add-share")),
         side_item("Photos", True, sub="2 devices · read & write"),
         side_item("Projects", sub="All members · read only"),
         side_item("Archive", sub="Desk PC · upload only"),
@@ -1134,7 +1140,7 @@ def d_join():
             T("Copy", 13, "Medium", MUTE), pad=16, fills=[BG], cornerRadius=12),
         row("Advanced", T("Advanced: listening port, receive folder", 13, "Medium", MUTE),
             spacer(), T("›", 14, color=MUTE)),
-        link(button("Join group", full=True), "d-remote"),
+        link(button("Join group", full=True), "d-looking"),
         gap=16, pad=32, sizingH="fixed", w=440, sizingV="fill",
     )
     dialog = row("Dialog", info, form, gap=0, align="min", sizingH="hug", sizingV="fixed",
@@ -1178,8 +1184,9 @@ def d_transfers(name="Desktop / 06 Transfers"):
         "Outgoing",
         T("OUTGOING", 11, "Semi Bold", MUTE, letterSpacing=0.6),
         pair_group("To Dmytro's Laptop", "Sending",
-                   job("Holiday 2024", "Folder · 412 of 1 820 files · now: bundle 5 of 18",
-                       0.34, meta="1.1 of 3.1 GB · 11.4 MB/s · 3 min left", action="×"),
+                   link(job("Holiday 2024", "Folder · 412 of 1 820 files · now: bundle 5 of 18",
+                            0.34, meta="1.1 of 3.1 GB · 11.4 MB/s · 3 min left", action="×"),
+                        "d-details"),
                    job("contract.pdf", "2.4 MB → Inbox", meta="Next · drag to reorder",
                        action="×"),
                    actions=("Pause",)),
@@ -1526,9 +1533,10 @@ def d_general():
             col("Text", T("Fingerprint", 13, "Medium", MUTE),
                 T("3fa2-91c0", 18, "Bold", letterSpacing=1), gap=2),
             T("Copy", 13, "Semi Bold"), pad=[14, 16, 14, 16], gap=24),
-        srow("Change password", "Devices without the new one drop out",button("Change…", primary=False, small=True)),
+        srow("Change password", "Devices without the new one drop out",
+             link(button("Change…", primary=False, small=True), "d-change-pass")),
         srow("Leave group", "Forget the group key on this PC. Queues are kept.",
-             button("Leave", primary=False, small=True)),
+             link(button("Leave", primary=False, small=True), "d-leave")),
     )
     device = scard(
         srow("This device's name", "Shown to your other devices",
@@ -1630,18 +1638,508 @@ def d_devices():
                  "change the password on all your other devices (General › Change password).",
                  13, color=MUTE, wrap=True), gap=4),
                pad=16, align="min", cornerRadius=12, strokes=[LINE], strokeWeight=1)
-    warn = row("Key warning", icon(20, 6, DARK), col("Text",
+    warn = link(row("Key warning", icon(20, 6, DARK), col("Text",
                T("If a device's key changes, it's blocked until you confirm it here.", 13,
                  "Medium"),
                T("This happens after a reinstall, or if someone imitates the device.", 12,
                  color=MUTE, wrap=True), gap=2),
-               pad=14, align="min", cornerRadius=12, fills=[SURF])
+               pad=14, align="min", cornerRadius=12, fills=[SURF]), "d-key")
     return settings_window(
         "Desktop / 10 Settings — devices", 3,
         row("Head", T("Devices that joined your group and were seen by this PC.", 13,
                       color=MUTE), spacer(), T("4 known", 13, "Medium", MUTE)),
         tbl, menu_hint, warn, note,
     )
+
+
+# ---------------------------------------------------------------- group dialogs
+def modal(win, name, dialog):
+    """Put a dialog over a desktop window (dimmed)."""
+    win["name"] = name
+    win["kids"].append(F("Scrim", dialog, layout="vertical", mainAlign="center",
+                         crossAlign="center", w=DESK[0], h=DESK[1], sizingH="fixed",
+                         sizingV="fixed", absolute=True, fills=["#18181B66"]))
+    return win
+
+
+def dialog_box(*kids, w=520):
+    return col("Dialog", *kids, gap=16, pad=28, sizingH="fixed", w=w, fills=[SURF],
+               cornerRadius=18,
+               effects=[{"type": "dropShadow", "color": "#00000033", "offset": [0, 16],
+                         "radius": 40}])
+
+
+def fp_change():
+    box = lambda label, v, on: col(label, T(label, 12, "Medium", MUTE),  # noqa: E731
+                                   T(v, 20, "Bold", INK if on else FAINT, letterSpacing=1),
+                                   gap=2, sizingH="hug")
+    return row("Fingerprint change", box("Current fingerprint", "3fa2-91c0", False),
+               T("→", 18, "Medium", MUTE), box("New fingerprint", "7c41-0b9e", True),
+               spacer(), T("Copy", 13, "Semi Bold"), gap=16, pad=16, fills=[BG],
+               cornerRadius=12)
+
+
+def info_line(text):
+    return row("Info", R(6, 6, MUTE, 3, name="Bullet"), T(text, 13, color=MUTE, wrap=True),
+               gap=10, align="center")
+
+
+def check_opt(title, sub, checked):
+    return row(f"Option / {title}", checkbox(checked),
+               col("Text", T(title, 14, "Medium"), T(sub, 12, color=MUTE, wrap=True), gap=2),
+               align="min", gap=10)
+
+
+CHANGE_PASS_TEXT = ("A new password makes a new group key. Devices that don't get it drop out "
+                    "until they join again with it.")
+LEAVE_TEXT = ("This device forgets the group key and stops finding your devices. Files on "
+              "disk aren't touched.")
+
+
+def d_change_pass():
+    dlg = dialog_box(
+        T("Change group password", 20, "Bold"),
+        T(CHANGE_PASS_TEXT, 14, color=MUTE, wrap=True),
+        field("Current password", "••••••••••••", hint="Checked on this PC; it isn't stored "
+              "anywhere."),
+        field("New password", "maple-orbit-fence-tulip", hint="Strong · generated 4-word "
+              "passphrase", trailing="Generate"),
+        fp_change(),
+        col("Notes",
+            info_line("Then enter the new password on each device you keep."),
+            info_line("Lost or unwanted device? Just don't give it the new password."),
+            info_line("Queues and known devices are kept; each device reconnects once it "
+                      "has the new password."),
+            gap=8),
+        row("Actions", spacer(), link(button("Cancel", primary=False), "back"),
+            link(button("Change password"), "back"), gap=10),
+        w=560)
+    return modal(d_general(), "Desktop / 15 Change password", dlg)
+
+
+def d_leave():
+    dlg = dialog_box(
+        T("Leave group “home”?", 20, "Bold"),
+        T(LEAVE_TEXT, 14, color=MUTE, wrap=True),
+        col("Options",
+            check_opt("Keep the send queue", "3 jobs to iPad · sent if you join this group "
+                      "again", True),
+            check_opt("Forget known devices", "Otherwise the 4 devices are recognised again "
+                      "if you rejoin", False),
+            gap=12),
+        T("Shared folders, backups and trusted networks stay as they are.", 12, color=MUTE,
+          wrap=True),
+        row("Actions", spacer(), link(button("Cancel", primary=False), "back"),
+            link(button("Leave group"), "d-join"), gap=10),
+        w=480)
+    return modal(d_general(), "Desktop / 16 Leave group", dlg)
+
+
+def p_change_pass():
+    return phone(
+        "Phone / 19 Change password",
+        app_bar("Change password", "Group home", back=True),
+        inset(T(CHANGE_PASS_TEXT, 14, color=MUTE, wrap=True), pad=(0, 20, 12, 20)),
+        col("Form",
+            field("Current password", "••••••••••••"),
+            field("New password", "maple-orbit-fence-tulip", hint="Strong · generated "
+                  "passphrase", trailing="Generate"),
+            gap=14, pad=[0, 20, 0, 20]),
+        inset(row("Fingerprint", col("Text", T("New fingerprint", 12, "Medium", MUTE),
+                                     T("7c41-0b9e", 22, "Bold", letterSpacing=1), gap=2),
+                  T("was 3fa2-91c0", 12, color=FAINT), pad=16, fills=[SURF],
+                  cornerRadius=12), pad=(16, 16, 0, 16)),
+        inset(col("Notes",
+                  info_line("Then enter it on each device you keep."),
+                  info_line("Lost device? Just don't give it the new password."),
+                  gap=8), pad=(14, 20, 0, 20)),
+        footer=col("Footer", link(button("Change password", full=True), "back"), gap=0,
+                   pad=[12, 20, 30, 20], fills=[SURF], strokes=[LINE], strokeWeight=1,
+                   strokeAlign="inside"),
+    )
+
+
+def p_leave():
+    body = sheet(
+        T("Leave group “home”?", 20, "Bold"),
+        T(LEAVE_TEXT, 14, color=MUTE, wrap=True, textAlignHorizontal="center"),
+        col("Options",
+            check_opt("Keep the send queue", "3 jobs to iPad · sent if you rejoin", True),
+            check_opt("Forget known devices", "Otherwise recognised again if you rejoin",
+                      False),
+            gap=12),
+        T("Shared folders, backups and trusted networks stay.", 12, color=MUTE),
+        col("Actions", link(button("Leave group", full=True), "join"),
+            link(button("Cancel", primary=False, full=True), "back"), gap=8),
+    )
+    dim = F("Scrim", w=PHONE[0], h=10, sizingH="fill", sizingV="fill", fills=["#18181B66"])
+    return F("Phone / 20 Leave group", status_bar(), dim, body, w=PHONE[0], h=PHONE[1],
+             layout="vertical", gap=0, fills=[BLOCK], clip=True, cornerRadius=28)
+
+
+# ---------------------------------------------------------------- P1 flows
+def psheet(name, *kids):
+    """Phone bottom sheet over a dimmed screen."""
+    dim = F("Scrim", w=PHONE[0], h=10, sizingH="fill", sizingV="fill", fills=["#18181B66"])
+    return F(name, status_bar(), dim, sheet(*kids), w=PHONE[0], h=PHONE[1],
+             layout="vertical", gap=0, fills=[BLOCK], clip=True, cornerRadius=28)
+
+
+def avatar(online=True, size=40):
+    return F("Avatar", R(size, size, BLOCK, size // 2), status_dot(online),
+             layout="horizontal", gap=-10, crossAlign="max", sizingH="hug", sizingV="hug")
+
+
+def steps_card(*items):
+    kids = []
+    for i, (t, sub) in enumerate(items, 1):
+        kids.append(row(f"Step {i}", F("Number", T(str(i), 12, "Bold", SURF),
+                                       layout="horizontal", mainAlign="center",
+                                       crossAlign="center", w=24, h=24, sizingH="fixed",
+                                       sizingV="fixed", cornerRadius=12, fills=[DARK]),
+                        col("Text", T(t, 14, "Semi Bold"), T(sub, 13, color=MUTE, wrap=True),
+                            gap=2), align="min", gap=12))
+    return col("Steps", *kids, gap=14)
+
+
+LOOK_STEPS = (
+    ("Open LocalDrop on another device", "Phone, tablet or computer on the same network."),
+    ("Join with the same name and password", "Group “home”. The fingerprint must show "
+     "3fa2-91c0."),
+    ("Trust this network there too", "Both devices search only on networks they trust."),
+)
+
+
+# 1. empty state after joining
+def d_looking():
+    found = link(row("Found", icon(20, 6, DARK), T("When a device appears it opens here "
+                     "automatically.", 13, color=MUTE), spacer(), T("Desk PC found  ›", 13,
+                     "Semi Bold"), pad=[10, 14, 10, 14], cornerRadius=10, strokes=[LINE],
+                     strokeWeight=1), "d-remote")
+    card_ = col(
+        "Looking", F("Radar", F("Ring 2", F("Ring 1", icon(28, 14, DARK, "Dot"),
+                                            layout="horizontal", mainAlign="center",
+                                            crossAlign="center", w=64, h=64, sizingH="fixed",
+                                            sizingV="fixed", cornerRadius=32, fills=[BLOCK]),
+                                layout="horizontal", mainAlign="center", crossAlign="center",
+                                w=104, h=104, sizingH="fixed", sizingV="fixed",
+                                cornerRadius=52, strokes=[LINE], strokeWeight=1),
+                     layout="horizontal", mainAlign="center", sizingH="fill", sizingV="hug"),
+        col("Head", T("Looking for your devices…", 22, "Bold"),
+            T("Searching on Home (Wi-Fi, trusted). Nothing found yet.", 14, color=MUTE),
+            gap=4, crossAlign="center"),
+        steps_card(*LOOK_STEPS),
+        row("More", T("Not showing up?", 13, "Semi Bold"), T("Check that both devices are on "
+            "the same Wi-Fi and the firewall allows LocalDrop.", 13, color=MUTE, wrap=True),
+            align="min", gap=8),
+        gap=22, pad=32, sizingH="fixed", w=560, fills=[SURF], cornerRadius=16)
+    toolbar = row("Toolbar", side_toggle(True), T("LocalDrop", 15, "Semi Bold"), spacer(),
+                  disc_pill(), search(), seg("Remote", "Split", active=0), gap=12)
+    return window("Desktop / 17 Looking for devices", "none", main_area(
+        toolbar, fill_v("Top"), row("Center", card_, mainAlign="center"),
+        row("Found row", found, mainAlign="center"), fill_v("Bottom"), gap=16,
+    ), disc="empty")
+
+
+def p_looking():
+    return phone(
+        "Phone / 21 Looking for devices",
+        panel_tabs(1, peer="No device", peer_sub="Right · searching…"),
+        col("Looking", F("Radar", icon(28, 14, DARK, "Dot"), layout="horizontal",
+                         mainAlign="center", crossAlign="center", w=88, h=88,
+                         sizingH="fixed", sizingV="fixed", cornerRadius=44, fills=[BLOCK]),
+            T("Looking for your devices…", 20, "Bold"),
+            T("Searching on Home (Wi-Fi, trusted).", 13, color=MUTE),
+            gap=10, pad=[28, 20, 16, 20], crossAlign="center"),
+        inset(card(col("Steps wrap", steps_card(*LOOK_STEPS), pad=16)), pad=(0, 16, 0, 16)),
+        inset(link(row("Found", T("Desk PC found", 14, "Semi Bold"), spacer(),
+                       T("Open  ›", 13, "Semi Bold"), pad=14, fills=[SURF], cornerRadius=12),
+                   "files-root"), pad=(12, 16, 0, 16)),
+        nav="Files",
+    )
+
+
+# 2. incoming request (accept policy = Ask)
+def incoming_body(phone=False):
+    files = card(
+        list_row("Contracts", "Folder · 9 files · 840 MB", pad_x=14),
+        divider(62),
+        list_row("scan_0042.pdf", "3.1 MB", pad_x=14),
+        divider(62),
+        list_row("+ 2 more", None, lead=None, pad_x=14),
+    )
+    return [
+        row("From", avatar(True), col("Text", T("Work MacBook wants to send you", 13,
+                                                color=MUTE),
+                                      T("11 items · 1.2 GB", 20, "Bold"), gap=2)),
+        files,
+        row("Dest", T("Save to", 13, color=MUTE), select_box("Inbox · Downloads/LocalDrop"),
+            gap=10),
+        check_opt("Always accept from Work MacBook", "Changes this device to Auto in "
+                  "Settings › Devices", False),
+    ]
+
+
+def d_incoming():
+    dlg = dialog_box(*incoming_body(),
+                     T("Waits up to 10 min; the sender's queue goes on meanwhile.", 12,
+                       color=MUTE),
+                     row("Actions", spacer(), link(button("Decline", primary=False), "back"),
+                         link(button("Accept"), "d-transfers"), gap=10), w=520)
+    return modal(d_remote(), "Desktop / 18 Incoming request", dlg)
+
+
+def p_incoming():
+    return psheet("Phone / 22 Incoming request", *incoming_body(True),
+                  col("Actions", link(button("Accept", full=True), "transfers"),
+                      link(button("Decline", primary=False, full=True), "back"), gap=8))
+
+
+# 3. key changed (pinning mismatch)
+def key_body():
+    fp = lambda label, v, on: col(label, T(label, 12, "Medium", MUTE),  # noqa: E731
+                                  T(v, 15, "Bold", INK if on else FAINT, letterSpacing=1),
+                                  gap=2, sizingH="hug")
+    return [
+        row("Head", icon(40, 12, DARK), col("Text", T("Desk PC's key has changed", 20,
+                                                       "Bold"),
+                                             T("Blocked until you decide", 13, color=MUTE),
+                                             gap=2)),
+        T("Desk PC is presenting a different device key than before. That's expected after "
+          "reinstalling LocalDrop or resetting the device. Otherwise someone in your group "
+          "may be pretending to be it.", 14, color=MUTE, wrap=True),
+        row("Keys", fp("Known key", "3c07-118a-e4f0", False), T("→", 16, color=MUTE),
+            fp("New key", "9b2d-40e7-1c58", True), gap=16, pad=14, fills=[BG],
+            cornerRadius=12),
+        T("If unsure, check the device ID in Settings › General on Desk PC.", 12,
+          color=MUTE, wrap=True),
+    ]
+
+
+def d_key():
+    dlg = dialog_box(*key_body(),
+                     row("Actions", link(T("Forget Desk PC", 13, "Semi Bold", MUTE), "back"),
+                         spacer(), link(button("Keep blocked", primary=False), "back"),
+                         link(button("Trust new key"), "back"), gap=10), w=540)
+    return modal(d_remote(), "Desktop / 19 Key changed", dlg)
+
+
+def p_key():
+    return psheet("Phone / 23 Key changed", *key_body(),
+                  col("Actions", link(button("Trust new key", full=True), "back"),
+                      link(button("Keep blocked", primary=False, full=True), "back"),
+                      gap=8))
+
+
+# 4. desktop: drop overlay + send dialog
+def d_drop():
+    def target(name, sub, ok):
+        return row(f"Target / {name}", icon(28, 8, DARK if ok else BLOCK),
+                   col("Text", T(name, 15, "Semi Bold", INK if ok else FAINT),
+                       T(sub, 12, color=MUTE), gap=2),
+                   chip("Drop here" if ok else "Read only", ok), gap=12, pad=14,
+                   fills=[SURF], cornerRadius=12,
+                   strokes=[DARK if ok else LINE], strokeWeight=2 if ok else 1)
+    layer = col(
+        "Drop layer",
+        T("Drop 3 items to send to Dmytro's Laptop", 22, "Bold", SURF),
+        T("Holiday 2024, contract.pdf, IMG_0142.MOV · 4.3 GB", 14, color=BLOCK),
+        col("Targets", target("Inbox", "Downloads/LocalDrop", True),
+            target("Photos", "You can upload · conflicts: ask", True),
+            target("Projects", "Browse · download only", False),
+            gap=10, sizingH="fixed", w=460),
+        T("Drop on the window: Inbox · on a folder: into that folder", 13, color=BLOCK),
+        gap=16, crossAlign="center", mainAlign="center", w=DESK[0], h=DESK[1],
+        sizingH="fixed", sizingV="fixed", absolute=True, fills=["#18181BB3"])
+    win = d_remote()
+    win["name"] = "Desktop / 20 Drop to send"
+    win["kids"].append(link(layer, "d-send"))
+    return win
+
+
+def d_send():
+    items = card(
+        list_row("Holiday 2024", "Folder · 1 820 files · 3.1 GB", trailing="×", pad_x=14),
+        divider(62), list_row("contract.pdf", "2.4 MB", trailing="×", pad_x=14),
+        divider(62), list_row("IMG_0142.MOV", "1.2 GB", trailing="×", pad_x=14),
+    )
+    dest = card(
+        list_row("Inbox", "Downloads/LocalDrop on Dmytro's Laptop", lead=radio(True),
+                 pad_x=14),
+        divider(48),
+        list_row("Shared folder", None, lead=radio(False), pad_x=14,
+                 trailing=row("Pick", select_box("Photos"), select_box("/ Camera"), gap=6,
+                              sizingH="hug")),
+    )
+    dlg = dialog_box(
+        row("Head", T("Send 3 items", 20, "Bold"), T("4.3 GB", 14, color=MUTE), spacer(),
+            T("+ Add files", 13, "Semi Bold"), gap=10),
+        items,
+        row("To", T("To", 13, "Medium", MUTE), select_box("● Dmytro's Laptop · online"),
+            T("Offline devices get it when they're back", 12, color=MUTE), gap=10),
+        T("DESTINATION", 11, "Semi Bold", MUTE, letterSpacing=0.6), dest,
+        T("Large files go one by one, small ones are bundled. Folders keep their structure.",
+          12, color=MUTE, wrap=True),
+        row("Actions", spacer(), link(button("Cancel", primary=False), "back"),
+            link(button("Send"), "d-transfers"), gap=10),
+        w=600)
+    return modal(d_remote(), "Desktop / 21 Send files", dlg)
+
+
+# 5. add shared folder
+def share_form(phone=False):
+    access = card(
+        list_row("All group members", "Including devices that join later",
+                 lead=radio(False), pad_x=14),
+        divider(48),
+        list_row("Selected devices", None, lead=radio(True), pad_x=14,
+                 trailing=None if phone else row("Devices", chip("Desk PC", True),
+                                                 chip("Dmytro's Laptop"), gap=6,
+                                                 sizingH="hug")),
+    )
+    perms = card(
+        default_row("Browse", "Allow"), divider(14),
+        default_row("Download", "Allow"), divider(14),
+        default_row("Upload", "Allow"), divider(14),
+        default_row("Delete by others", "Move to Trash"), divider(14),
+        default_row("Conflicts", "Ask"),
+    )
+    return access, perms
+
+
+def d_add_share():
+    access, perms = share_form()
+    left = col("Left",
+               field("Folder", "D:\\Work\\Clients", trailing="Choose…"),
+               field("Name shown to others", "Clients", hint="The real path is never shown."),
+               T("WHO CAN SEE IT", 11, "Semi Bold", MUTE, letterSpacing=0.6), access,
+               gap=12)
+    right = col("Right",
+                row("Perm head", T("PERMISSIONS", 11, "Semi Bold", MUTE, letterSpacing=0.6),
+                    spacer(), T("From App defaults · change to override", 12, color=MUTE)),
+                perms, gap=12)
+    dlg = dialog_box(
+        T("Add shared folder", 20, "Bold"),
+        row("Columns", left, right, gap=24, align="min"),
+        row("Actions", T("Only this folder and what's inside it is visible.", 12,
+                         color=MUTE), spacer(),
+            link(button("Cancel", primary=False), "back"),
+            link(button("Add folder"), "back"), gap=10),
+        w=900)
+    return modal(d_settings(), "Desktop / 22 Add shared folder", dlg)
+
+
+def p_add_share():
+    access, perms = share_form(phone=True)
+    return phone(
+        "Phone / 24 Add shared folder",
+        app_bar("Add shared folder", back=True),
+        col("Form", field("Folder", "Documents/Clients", trailing="Choose"),
+            field("Name shown to others", "Clients"), gap=12, pad=[0, 20, 0, 20]),
+        section("Who can see it"), inset(access),
+        section("Permissions", "From App defaults"), inset(perms),
+        footer=col("Footer", link(button("Add folder", full=True), "back"), gap=0,
+                   pad=[12, 20, 30, 20], fills=[SURF], strokes=[LINE], strokeWeight=1,
+                   strokeAlign="inside"),
+    )
+
+
+# 6. transfer details + errors
+def file_state(name, size, state, sub=None, action=None, strong=False):
+    return row(f"File / {name}", icon(24, 6),
+               col("Text", T(name, 14, "Medium"), *( [T(sub, 12, color=MUTE)] if sub else []),
+                   gap=2),
+               T(size, 13, color=MUTE), chip(state, strong),
+               *( [action] if action else []), gap=12, pad=[9, 16, 9, 16])
+
+
+def d_details():
+    files = card(
+        row("Head", T("Files", 14, "Semi Bold"), spacer(),
+            row("Filter", chip("All", True), chip("Failed · 2"), chip("Done · 410"), gap=6,
+                sizingH="hug"), pad=[12, 16, 6, 16]),
+        file_state("IMG_0412.jpg", "4.2 MB", "Sending", "bundle 5 of 18", strong=True),
+        divider(56),
+        file_state("IMG_0399.jpg", "3.9 MB", "Failed", "Changed on this PC while sending",
+                   button("Retry", primary=False, small=True)),
+        divider(56),
+        file_state("VID_0388.mp4", "1.4 GB", "Failed", "Can't read: in use by another app",
+                   button("Retry", primary=False, small=True)),
+        divider(56),
+        file_state("IMG_0413.jpg", "4.0 MB", "Waiting"),
+        divider(56),
+        file_state("IMG_0001.jpg", "4.1 MB", "Done"),
+    )
+    space = row("Space", icon(20, 6, DARK), col("Text",
+                T("Dmytro's Laptop is running out of space", 14, "Semi Bold"),
+                T("2.0 GB still to send, 1.2 GB free on its Downloads drive. The job pauses "
+                  "before the disk is full.", 13, color=MUTE, wrap=True), gap=2),
+                button("Pause now", primary=False, small=True), pad=14, align="min",
+                cornerRadius=12, fills=[SURF], strokes=[DARK], strokeWeight=1.5)
+    head = row("Header", link(T("‹", 26, "Medium", name="Back"), "back"),
+               icon(40, 12), col("Text", T("Holiday 2024 → Dmytro's Laptop", 20, "Bold"),
+                                 T("Folder · into Inbox · started 09:41", 13, color=MUTE),
+                                 gap=2),
+               button("Pause", primary=False, small=True),
+               button("Cancel job", primary=False, small=True), gap=12)
+    stats = row("Stats", *[col(f"Stat {k}", T(k, 12, color=MUTE), T(v, 16, "Semi Bold"), gap=2,
+                               sizingH="fill")
+                           for k, v in (("Progress", "1.1 of 3.1 GB"), ("Files", "412 of 1 820"),
+                                        ("Speed", "11.4 MB/s"), ("Left", "~3 min"))],
+                gap=16, pad=16, fills=[SURF], cornerRadius=12)
+    return window("Desktop / 23 Transfer details", "transfers", main_area(
+        head, col("Progress", progress(0.34), gap=0), stats, space, files, gap=14))
+
+
+def p_details():
+    files = card(
+        file_state("IMG_0412.jpg", "4.2 MB", "Sending", strong=True), divider(56),
+        file_state("IMG_0399.jpg", "3.9 MB", "Failed", "Changed while sending"), divider(56),
+        file_state("VID_0388.mp4", "1.4 GB", "Failed", "Can't read the file"), divider(56),
+        file_state("IMG_0413.jpg", "4.0 MB", "Waiting"),
+    )
+    return phone(
+        "Phone / 25 Transfer details",
+        app_bar("Holiday 2024", "To Dmytro's Laptop · into Inbox", back=True),
+        inset(col("Progress", progress(0.34), row("Meta", T("1.1 of 3.1 GB · 412 of 1 820 "
+              "files", 12, color=MUTE), spacer(), T("11.4 MB/s", 12, color=MUTE)), gap=8),
+              pad=(4, 20, 8, 20)),
+        inset(row("Space", icon(20, 6, DARK), T("Laptop is running out of space: 2.0 GB "
+                  "left to send, 1.2 GB free.", 13, "Medium", wrap=True), pad=14,
+                  align="min", fills=[SURF], cornerRadius=12, strokes=[DARK],
+                  strokeWeight=1.5)),
+        section("Files", "Failed · 2"), inset(files),
+        footer=row("Actions", button("Cancel job", primary=False, full=True),
+                   button("Retry failed", full=True), gap=10, pad=[12, 16, 30, 16],
+                   fills=[SURF], strokes=[LINE], strokeWeight=1, strokeAlign="inside"),
+    )
+
+
+# 7. delete on the other device
+def delete_body():
+    return [
+        T("Delete 2 files on Dmytro's Laptop?", 20, "Bold"),
+        T("IMG_0001.jpg, IMG_0002.jpg · 7.9 MB in Photos / Camera", 14, color=MUTE,
+          wrap=True),
+        row("Mode", icon(20, 6), col("Text", T("They go to the Trash on Dmytro's Laptop", 14,
+                                                "Medium"),
+                                      T("That's this folder's setting. They can be restored "
+                                        "there.", 12, color=MUTE, wrap=True), gap=2),
+            pad=14, align="min", fills=[BG], cornerRadius=12),
+    ]
+
+
+def d_delete():
+    dlg = dialog_box(*delete_body(),
+                     row("Actions", spacer(), link(button("Cancel", primary=False), "back"),
+                         link(button("Move to Trash"), "back"), gap=10), w=500)
+    return modal(d_split(), "Desktop / 24 Delete on other device", dlg)
+
+
+def p_delete():
+    return psheet("Phone / 26 Delete on other device", *delete_body(),
+                  col("Actions", link(button("Move to Trash", full=True), "back"),
+                      link(button("Cancel", primary=False, full=True), "back"), gap=8))
 
 
 # ---------------------------------------------------------------- settings (phone)
@@ -1655,8 +2153,9 @@ def p_group():
                   gap=6, pad=24, crossAlign="center", fills=[SURF], cornerRadius=16),
               pad=(8, 16, 0, 16)),
         section("Password"),
-        inset(card(list_row("Change password", "Devices that don't get the new one drop out",
-                            lead=None, trailing="›", pad_x=16))),
+        inset(card(link(list_row("Change password", "Devices that don't get the new one "
+                                 "drop out", lead=None, trailing="›", pad_x=16),
+                        "change-pass"))),
         section("This device"),
         inset(card(list_row("This device's name", "Pixel 8", lead=None, trailing="›",
                             pad_x=16),
@@ -1668,7 +2167,8 @@ def p_group():
                    divider(16),
                    list_row("From offline queues", "Same as receive folder", lead=None,
                             trailing="›", pad_x=16))),
-        inset(button("Leave group", primary=False, full=True), pad=(20, 16, 0, 16)),
+        inset(link(button("Leave group", primary=False, full=True), "leave"),
+              pad=(20, 16, 0, 16)),
         inset(T("Leaving forgets the group key on this phone. You can join again with the "
                 "same name and password.", 12, color=MUTE, wrap=True), pad=(8, 20, 0, 20)),
         nav="Settings",
@@ -1820,6 +2320,16 @@ SCREENS = {
     "d-net-menu": (d_net_menu, 111),
     "d-new-net": (d_new_net, 112),
     "d-networks": (d_networks, 113),
+    "d-change-pass": (d_change_pass, 114),
+    "d-leave": (d_leave, 115),
+    "d-looking": (d_looking, 116),
+    "d-incoming": (d_incoming, 117),
+    "d-key": (d_key, 118),
+    "d-drop": (d_drop, 119),
+    "d-send": (d_send, 120),
+    "d-add-share": (d_add_share, 121),
+    "d-details": (d_details, 122),
+    "d-delete": (d_delete, 123),
     "join": (p_join, 0),
     "files-remote": (p_files_remote, 1),
     "send": (p_send, 2),
@@ -1838,6 +2348,14 @@ SCREENS = {
     "disc-off": (p_disc_off, 15),
     "new-net": (p_new_net, 16),
     "networks": (p_networks, 17),
+    "change-pass": (p_change_pass, 18),
+    "leave": (p_leave, 19),
+    "looking": (p_looking, 20),
+    "incoming": (p_incoming, 21),
+    "key": (p_key, 22),
+    "add-share": (p_add_share, 23),
+    "details": (p_details, 24),
+    "delete": (p_delete, 25),
 }
 
 
@@ -1898,7 +2416,9 @@ def build(name):
 # ---------------------------------------------------------------- prototype
 # Event-driven states (no click leads there) get their own flow as the way in.
 FLOWS = {"Desktop": "d-join", "Phone": "join",
-         "Desktop · new network": "d-new-net", "Phone · new network": "new-net"}
+         "Desktop · new network": "d-new-net", "Phone · new network": "new-net",
+         "Desktop · incoming request": "d-incoming", "Phone · incoming request": "incoming",
+         "Desktop · key changed": "d-key", "Phone · key changed": "key"}
 
 
 def _text(m):

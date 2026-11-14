@@ -62,6 +62,8 @@ Outbox metadata (jobs, manifests, state, progress) is stored in the node databas
                                            └───────────┘
 
   any active state ── JobReject ──▶ Rejected
+  AwaitingDecision ── JobReject{NoAnswer} (10 min) ──▶ Waiting (offered again on next connect)
+  InProgress ── JobPending{LowSpace} ──▶ AwaitingDecision ── space freed ──▶ InProgress
   any active state ── Cancel (either side) ──▶ Cancelled
   Waiting ── source changed/missing ──▶ SourceChanged ── user choice ──▶ Waiting | Cancelled
   any active state ── expires_unix passed ──▶ Expired (optional expiry)

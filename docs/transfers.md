@@ -67,9 +67,30 @@ For each peer, both directions:
 
 - list of jobs with name, destination, files done / total, bytes done / total, speed,
   ETA, state (`Waiting for device`, `Waiting for decision`, `Sending`, `Paused`,
-  `Completed`, `Failed`);
+  `Paused · receiver low on space`, `No answer`, `Completed`, `Completed with errors`,
+  `Failed`);
 - a folder split into many units is **one row**; expanding shows files (optional);
 - actions: **Cancel** job, Pause / Resume job, Retry failed, Move up, Clear completed.
+
+**Transfer details** (click a job): totals, speed, ETA, banners (low space on the
+receiver), and the file list with a filter (*All / Failed / Waiting / Done*). Each file
+shows its state from the table below; failed files have **Retry**, and the job has
+**Retry failed**.
+
+### File states
+
+| State | Side | Cause | What happens |
+|---|---|---|---|
+| Waiting / Sending / Done | — | normal flow | — |
+| Skipped (identical) | receiver | same content already there, or `KeepExisting` | not sent |
+| Failed · *changed while sending* | sender | size or mtime changed during the unit ([below](#source-file-changes-during-sending)) | `FileSkipped{SourceChanged}`; rest of the unit continues; Retry sends the current version |
+| Failed · *in use by another program* | sender | the source can't be opened for reading (Windows exclusive lock) | `FileSkipped{SourceLocked}`; retried once after the unit, then Failed |
+| Failed · *in use by another program* | receiver | the target can't be replaced ([receiving.md](receiving.md#locked-targets-mainly-windows)) | verified `.ldpart` kept; Retry or Keep both |
+| Failed · *missing* | sender | file deleted or moved after the job was created | `FileSkipped{SourceMissing}` |
+| Failed · *corrupted* | receiver | segment hash failed 3 times | Retry starts the file again |
+
+A job with some failed files ends as **Completed with errors**; the failed files stay
+listed until retried or the job is cleared.
 
 Cancel semantics: the in-flight unit is aborted, files that were already fully written
 stay, partial files of this job are deleted. A cancel from either side cancels the job
@@ -176,6 +197,22 @@ flow continuously, and after every segment the sender inserts a small
 - **Pre-allocation** of the full size (`fallocate` / `SetEndOfFile` / `F_PREALLOCATE`)
   so a full disk is detected at start and the file is not fragmented.
 
+### Running out of space
+
+Other programs can use the space up while a long job runs. The receiver re-checks free
+space before each unit and at each segment checkpoint. If
+`free − bytes still to write` drops below the safety margin, it **pauses the job before
+the disk is full**:
+
+- receiver sends `JobPending{LowSpace{free, needed}}`; the sender's job shows *Paused ·
+  receiver low on space* and a banner in the transfer details ("Laptop is running out of
+  space: 1.2 GB free, 3.4 GB needed"); the receiver shows the same with a link to the
+  destination folder;
+- already written files and verified segments are kept;
+- the receiver re-checks every 30 s and continues on its own (`JobAccept{resume}`) when
+  enough space is free; either side can also Cancel, or the receiver can change the
+  destination for the rest of the job.
+
 ### Reading and writing efficiently
 
 - Sequential-access hints: `posix_fadvise(SEQUENTIAL)` and `DONTNEED` on already-sent
@@ -186,8 +223,11 @@ flow continuously, and after every segment the sender inserts a small
 ### Source file changes during sending
 
 The sender records size and mtime when the unit starts and checks them at every segment
-boundary and at the end. If the file changed, the unit stops with `SourceChanged`
-instead of delivering a mix of old and new content.
+boundary and at the end. If the file changed, the sender stops sending it
+(`FileSkipped{SourceChanged}`) instead of delivering a mix of old and new content; the
+receiver deletes its temp file and the rest of the unit continues. The file is shown as
+*Failed · changed while sending* with Retry. (For a deferred job checked before it
+starts, see [deferred-send.md](deferred-send.md).)
 
 ### Keeping devices awake
 

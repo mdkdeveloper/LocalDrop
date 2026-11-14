@@ -138,7 +138,8 @@ If the target is open in another program (e.g. a document in Word), it cannot be
 replaced:
 
 - retry with backoff for up to ~5 s (covers antivirus and indexer);
-- then the file is marked `Locked`, the rest of the job continues, and the UI offers
+- then the file is marked `Locked` (reported as `TargetLocked` in `UnitDone`, shown on
+  both sides as *Failed · in use by another program*), the rest of the job continues, and the UI offers
   *Retry* or *Keep both*. The verified `.ldpart` is kept until the user decides.
 
 ## Names on the receiving file system
