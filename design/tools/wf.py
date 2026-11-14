@@ -253,7 +253,7 @@ def p_join():
             T("Check that this code is the same on every device you add.", 12, color=MUTE,
               wrap=True),
             gap=8, pad=[18, 24, 0, 24]),
-        footer=col("Footer", link(button("Join group", full=True), "looking"), gap=0,
+        footer=col("Footer", link(button("Join group", full=True), "perms"), gap=0,
                    pad=[16, 24, 34, 24]),
     )
 
@@ -446,6 +446,7 @@ def p_devices_sheet():
         row("Add hint", icon(20, 6), T("To add a device, join the same group on it (name, "
             "password, fingerprint 3fa2-91c0).", 12, color=MUTE, wrap=True), pad=12,
             cornerRadius=12, strokes=[LINE], strokeWeight=1),
+        link(T("Connect by address…", 14, "Semi Bold", name="Connect by address"), "connect"),
     )
     dim = F("Scrim", w=PHONE[0], h=10, sizingH="fill", sizingV="fill", fills=["#18181B66"])
     return F("Phone / 10 Device picker", status_bar(), dim, body, w=PHONE[0], h=PHONE[1],
@@ -539,7 +540,7 @@ def p_files_local():
                    p_row("SD card", "88 GB free of 128 GB", bar=0.31, trailing="›"))),
         section("Places"),
         inset(card(p_row("Downloads", "84 items", trailing="›"), divider(68),
-                   p_row("DCIM / Camera", "2 410 items", trailing="›"), divider(68),
+                   link(p_row("DCIM / Camera", "2 410 items", trailing="›"), "local-folder"), divider(68),
                    p_row("Documents", "37 items", trailing="›"))),
         footer=mini_transfer(),
         nav="Files",
@@ -727,7 +728,8 @@ def sidebar(active, disc=True):
                 to="d-offline"),
             dev("Work MacBook", "Yesterday", False)]),
         F("Fill", layout="vertical", sizingH="fill", sizingV="fill"),
-        side_item("Transfers", active == "transfers", trailing=chip("2", True),
+        side_item("Transfers", active == "transfers",
+                  trailing=None if disc == "empty" else chip("2", True),
                   to="d-transfers"),
         side_item("Settings", active == "settings", to="d-general"),
         gap=4, pad=[16, 12, 16, 12], sizingH="fixed", sizingV="fill", w=264,
@@ -918,9 +920,9 @@ def d_remote(name="Desktop / 01 Browse — remote only"):
         frow("Inbox", ("—", perm_chips("Upload only"), "—"), w, checked=False,
              lead=inbox_lead, sub="Files you send land in Downloads/LocalDrop", trailing="›"),
         divider(48),
-        frow("Photos", ("2 184 items", perm_chips("Browse", "Download", "Upload",
+        link(frow("Photos", ("2 184 items", perm_chips("Browse", "Download", "Upload",
              "Delete → Trash"), "Today, 09:12"), w, checked=False, sub="Pictures",
-             trailing="›"),
+             trailing="›"), "d-remote-folder"),
         divider(48),
         frow("Projects", ("412 items", perm_chips("Browse", "Download"), "Yesterday"), w,
              checked=True, sub="D:\\Work\\Projects", trailing="›"),
@@ -1614,8 +1616,8 @@ def d_devices():
     def dev(name, plat, seen, accept, queue, online, sub=None):
         lead = F("Avatar", R(28, 28, BLOCK, 14), status_dot(online), layout="horizontal",
                  gap=-8, crossAlign="max", sizingH="hug", sizingV="hug")
-        return frow(name, (plat, seen, select_box(accept), queue), w, lead=lead, sub=sub,
-                    trailing="⋮", box=False)
+        return link(frow(name, (plat, seen, select_box(accept), queue), w, lead=lead,
+                         sub=sub, trailing="⋮", box=False), "d-device")
 
     tbl = card(
         frow("Device", ("Platform", "Last seen", "Accept files", "Queue"), w, header=True,
@@ -1832,6 +1834,7 @@ def d_looking():
         row("More", T("Not showing up?", 13, "Semi Bold"), T("Check that both devices are on "
             "the same Wi-Fi and the firewall allows LocalDrop.", 13, color=MUTE, wrap=True),
             align="min", gap=8),
+        link(T("Connect by address…", 13, "Semi Bold", name="Connect by address"), "d-connect"),
         gap=22, pad=32, sizingH="fixed", w=560, fills=[SURF], cornerRadius=16)
     toolbar = row("Toolbar", side_toggle(True), T("LocalDrop", 15, "Semi Bold"), spacer(),
                   disc_pill(), search(), seg("Remote", "Split", active=0), gap=12)
@@ -1855,6 +1858,8 @@ def p_looking():
         inset(link(row("Found", T("Desk PC found", 14, "Semi Bold"), spacer(),
                        T("Open  ›", 13, "Semi Bold"), pad=14, fills=[SURF], cornerRadius=12),
                    "files-root"), pad=(12, 16, 0, 16)),
+        inset(link(T("Not showing up? Connect by address", 13, "Semi Bold", MUTE,
+                     name="Connect by address"), "connect"), pad=(14, 20, 0, 20)),
         nav="Files",
     )
 
@@ -2142,6 +2147,329 @@ def p_delete():
                       link(button("Cancel", primary=False, full=True), "back"), gap=8))
 
 
+# ---------------------------------------------------------------- P2 screens
+# 1. device details (Settings › Devices › a device)
+DEVICE_FACTS = (("Platform", "macOS 15 · LocalDrop 0.4"), ("Device ID", "e012-6f4b-93cc"),
+                ("Last seen", "Yesterday, 18:20 on Office-5G"), ("Known since", "2 Mar"))
+
+
+def device_settings(phone=False):
+    accept = card(
+        list_row("Like the app default", "Now: automatically", lead=radio(False), pad_x=14),
+        divider(48),
+        list_row("Always automatically", None, lead=radio(False), pad_x=14),
+        divider(48),
+        list_row("Ask me every time", "Requests wait up to 10 min", lead=radio(True),
+                 pad_x=14),
+    )
+    recv = card(
+        default_row("Inbox for this device", "Like the app default"), divider(14),
+        default_row("From its offline queue", "Like the app default"),
+    )
+    return accept, recv
+
+
+def d_device():
+    accept, recv = device_settings()
+    facts = card(*[x for i, (k, v) in enumerate(DEVICE_FACTS) for x in
+                   ([divider(14)] if i else []) + [srow(k, None, v)]])
+    left = col("Left",
+               row("Head", avatar(False, 48), col("Text", T("Work MacBook", 20, "Bold"),
+                                                  T("Offline · seen yesterday", 13,
+                                                    color=MUTE), gap=2),
+                   T("Rename", 13, "Semi Bold"), gap=14),
+               facts,
+               link(row("Queue", T("Send queue", 14, "Medium"), spacer(),
+                        T("Empty", 13, color=MUTE), T("Open  ›", 13, "Semi Bold"), gap=10,
+                        pad=[12, 16, 12, 16], fills=[BG], cornerRadius=12), "d-offline"),
+               gap=14)
+    right = col("Right",
+                T("ACCEPT FILES FROM IT", 11, "Semi Bold", MUTE, letterSpacing=0.6), accept,
+                T("WHERE ITS FILES GO", 11, "Semi Bold", MUTE, letterSpacing=0.6), recv,
+                gap=10)
+    dlg = dialog_box(
+        row("Columns", left, right, gap=28, align="min"),
+        T("Shared folders it can open are set per folder (Settings › Shared folders).", 12,
+          color=MUTE, wrap=True),
+        row("Actions", link(T("Forget device", 13, "Semi Bold", MUTE), "back"), spacer(),
+            link(button("Close", primary=False), "back"), link(button("Save"), "back"),
+            gap=10),
+        w=860)
+    return modal(d_devices(), "Desktop / 25 Device details", dlg)
+
+
+def p_device():
+    accept, recv = device_settings(phone=True)
+    facts = card(*[x for i, (k, v) in enumerate(DEVICE_FACTS) for x in
+                   ([divider(16)] if i else []) + [list_row(k, v, lead=None, pad_x=16)]])
+    return phone(
+        "Phone / 27 Device details",
+        app_bar("Work MacBook", "Offline · seen yesterday", back=True, actions=("Rename",)),
+        section("Accept files from it"), inset(accept),
+        section("Where its files go"), inset(recv),
+        section("About"), inset(facts),
+        inset(link(button("Forget device", primary=False, full=True), "back"),
+              pad=(16, 16, 16, 16)),
+    )
+
+
+# 2. connect by address (when discovery can't see a device)
+def ip_form():
+    return [
+        field("Address", "192.168.1.42", hint="IP address or name, e.g. desk-pc.local"),
+        field("Port", "Auto", hint="Leave Auto unless the other device uses a fixed port "
+              "(Settings › General).", trailing="47474"),
+        check_opt("Remember this address", "Try it again whenever LocalDrop starts", True),
+        row("Note", icon(20, 6), T("The device still has to prove it knows the group "
+            "password. The address must be on a trusted network or an adapter you added "
+            "(e.g. a VPN).", 12, color=MUTE, wrap=True), pad=12, align="min",
+            cornerRadius=12, fills=[BG]),
+    ]
+
+
+def d_connect():
+    dlg = dialog_box(
+        T("Connect by address", 20, "Bold"),
+        T("For networks where devices can't find each other (guest Wi-Fi, VPN, mDNS "
+          "blocked).", 14, color=MUTE, wrap=True),
+        *ip_form(),
+        row("Actions", spacer(), link(button("Cancel", primary=False), "back"),
+            link(button("Connect"), "d-remote"), gap=10),
+        w=480)
+    return modal(d_looking(), "Desktop / 26 Connect by address", dlg)
+
+
+def p_connect():
+    return psheet("Phone / 28 Connect by address",
+                  T("Connect by address", 20, "Bold"),
+                  col("Form", *ip_form(), gap=12),
+                  col("Actions", link(button("Connect", full=True), "files-root"),
+                      link(button("Cancel", primary=False, full=True), "back"), gap=8))
+
+
+# 3. tray menu + system notifications (desktop)
+def menu_item(label, sub=None, trailing=None, to=None, strong=False):
+    kids = [col("Text", T(label, 13, "Semi Bold" if strong else "Medium"),
+                *( [T(sub, 11, color=MUTE)] if sub else []), gap=1)]
+    if trailing:
+        kids.append(trailing if isinstance(trailing, dict) else T(trailing, 12, color=MUTE))
+    r = row(f"Item / {label}", *kids, gap=10, pad=[7, 12, 7, 12], cornerRadius=6)
+    return link(r, to) if to else r
+
+
+def menu_sep():
+    return F("Sep", R(10, 1, LINE, name="Line", sizingH="fill"), layout="horizontal",
+             padding=[4, 0, 4, 0], sizingH="fill", sizingV="hug")
+
+
+def toast(title, body, actions=(), lead=True):
+    btns = [link(button(a, primary=i == len(actions) - 1, small=True), to)
+            for i, (a, to) in enumerate(actions)]
+    return col(f"Toast / {title}",
+               row("Head", icon(20, 6, DARK), T("LocalDrop", 12, "Medium", MUTE), spacer(),
+                   T("now", 11, color=FAINT), gap=8),
+               T(title, 14, "Semi Bold", wrap=True), T(body, 13, color=MUTE, wrap=True),
+               *( [row("Actions", spacer(), *btns, gap=8)] if btns else []),
+               gap=6, pad=14, sizingH="fixed", w=360, fills=[SURF], cornerRadius=12,
+               effects=[{"type": "dropShadow", "color": "#00000026", "offset": [0, 8],
+                         "radius": 24}])
+
+
+def d_tray():
+    menu = col(
+        "Tray menu",
+        row("Head", icon(24, 7, DARK), col("Text", T("LocalDrop", 14, "Bold"),
+                                           T("Group home · 3fa2-91c0", 11, color=MUTE),
+                                           gap=0), pad=[6, 12, 6, 12]),
+        menu_sep(),
+        menu_item("Discovery", "Searching on Home", small_toggle(True), to="d-disc-off"),
+        menu_sep(),
+        T("ONLINE", 10, "Semi Bold", MUTE, letterSpacing=0.6, name="Online label"),
+        menu_item("Dmytro's Laptop", "Sending Holiday 2024 · 34%", to="d-remote"),
+        menu_item("Desk PC", "Receiving Backup.zip · 72%", to="d-transfers"),
+        menu_sep(),
+        menu_item("Open LocalDrop", strong=True, to="d-remote"),
+        menu_item("Send files…", to="d-send"),
+        menu_item("Pause all transfers", to="d-transfers"),
+        menu_item("Settings", to="d-general"),
+        menu_sep(),
+        menu_item("Quit", "Queued files wait until you start it again"),
+        gap=0, pad=[6, 6, 6, 6], sizingH="fixed", w=280, fills=[SURF], cornerRadius=10,
+        strokes=[LINE], strokeWeight=1,
+        effects=[{"type": "dropShadow", "color": "#00000026", "offset": [0, 8], "radius": 24}])
+    toasts = col("Notifications",
+                 T("NOTIFICATIONS", 11, "Semi Bold", MUTE, letterSpacing=0.6),
+                 toast("Work MacBook wants to send 11 items", "1.2 GB · Contracts, "
+                       "scan_0042.pdf and 9 more", (("Decline", "back"),
+                                                    ("Review", "d-incoming"))),
+                 toast("Holiday 2024 sent to Dmytro's Laptop", "1 820 files · 3.1 GB",
+                       (("Show in Transfers", "d-transfers"),)),
+                 toast("Not searching on “Office-5G”", "LocalDrop only searches on networks "
+                       "you trust.", (("Not now", "back"), ("Trust", "d-new-net"))),
+                 toast("iPad is back", "Sending 3 queued items", (("Open", "d-offline"),)),
+                 gap=10, sizingH="hug")
+    taskbar = row("Taskbar", icon(28, 6, FAINT, "Start"), spacer(),
+                  row("Tray", icon(18, 4, FAINT), icon(18, 4, FAINT),
+                      F("LocalDrop tray icon", icon(18, 4, DARK), layout="horizontal",
+                        padding=4, sizingH="hug", sizingV="hug", fills=[BLOCK],
+                        cornerRadius=6),
+                      T("9:41", 12, "Medium"), gap=10, sizingH="hug"),
+                  pad=[8, 16, 8, 16], fills=[SURF], strokes=[LINE], strokeWeight=1)
+    desk = row("Desktop", col("Captions",
+                              T("Tray menu", 16, "Bold"),
+                              T("Right-click the tray icon. Closing the window keeps LocalDrop "
+                                "running here, so queued files can still go out.", 13,
+                                color=MUTE, wrap=True),
+                              T("Notifications", 16, "Bold"),
+                              T("Incoming requests, finished jobs, untrusted networks and "
+                                "devices coming back. Clicking opens the matching screen.", 13,
+                                color=MUTE, wrap=True),
+                              gap=8, sizingH="fixed", w=300),
+               spacer(), menu,
+               toasts, gap=40, pad=[32, 32, 16, 32], align="max", sizingV="fill")
+    return F("Desktop / 27 Tray menu & notifications", desk, taskbar, w=DESK[0], h=DESK[1],
+             layout="vertical", gap=0, fills=[BLOCK], clip=True, cornerRadius=12,
+             strokes=[LINE], strokeWeight=1)
+
+
+def p_notifs():
+    def note(title, body, actions=(), ongoing=False, bar=None):
+        btns = [link(T(a, 13, "Semi Bold"), to) for a, to in actions]
+        return col(f"Note / {title}",
+                   row("Head", icon(18, 5, DARK), T("LocalDrop" + (" · ongoing" if ongoing
+                                                                     else " · now"), 11,
+                                                    "Medium", MUTE), gap=6),
+                   T(title, 14, "Semi Bold", wrap=True), T(body, 13, color=MUTE, wrap=True),
+                   *( [progress(bar)] if bar is not None else []),
+                   *( [row("Actions", *btns, gap=20)] if btns else []),
+                   gap=6, pad=14, fills=[SURF], cornerRadius=16)
+    return phone(
+        "Phone / 29 Notifications",
+        col("Shade head", T("9:41", 40, "Bold"), T("Thursday, 14 November", 14, color=MUTE),
+            gap=2, pad=[12, 20, 16, 20]),
+        inset(col("Notes",
+                  note("Sending Holiday 2024 to Dmytro's Laptop", "412 of 1 820 files · 3 min "
+                       "left", (("Pause", "transfers"), ("Open", "details")), ongoing=True,
+                       bar=0.34),
+                  note("Work MacBook wants to send 11 items", "1.2 GB · waits up to 10 min",
+                       (("Decline", "back"), ("Review", "incoming"))),
+                  note("Not searching on “Office-5G”", "Open LocalDrop to trust this network.",
+                       (("Open", "new-net"),)),
+                  note("Received 3 files from Desk PC", "Saved to Download/LocalDrop",
+                       (("Show", "transfers"),)),
+                  gap=10), pad=(0, 12, 0, 12)),
+        inset(T("The ongoing one is the Android foreground service that keeps transfers "
+                "running; it goes away when nothing is queued. On iOS transfers run while the "
+                "app is open.", 12, color=MUTE, wrap=True), pad=(14, 20, 0, 20)),
+    )
+
+
+# 4. mobile permissions after joining
+def perm_row(title, sub, state, need):
+    ctl = (chip("Allowed", True) if state == "ok" else
+           button("Allow", small=True, primary=need == "Needed"))
+    return row(f"Perm / {title}", icon(32, 9),
+               col("Text", row("Title", T(title, 15, "Medium"), chip(need), gap=6,
+                               sizingH="hug"),
+                   T(sub, 12, color=MUTE, wrap=True), gap=3),
+               ctl, pad=[12, 14, 12, 14], align="center")
+
+
+def p_perms():
+    rows = card(
+        perm_row("Nearby devices", "Find your devices on this Wi-Fi. iOS: “Local Network”.",
+                 "ok", "Needed"),
+        divider(60),
+        perm_row("Notifications", "Incoming files, finished jobs, untrusted networks.",
+                 "ask", "Needed"),
+        divider(60),
+        perm_row("Run in background", "Lets queued files go out when a device appears. "
+                 "Turns off battery optimisation for LocalDrop.", "ask", "Advised"),
+        divider(60),
+        perm_row("Wi-Fi name", "Tells your networks apart by name. Uses location; the name "
+                 "never leaves the phone.", "ask", "Optional"),
+    )
+    return phone(
+        "Phone / 30 Permissions",
+        col("Hero", T("A few permissions", 24, "Bold"),
+            T("LocalDrop asks only for what it uses. You can change these later in Settings.",
+              14, color=MUTE, wrap=True), gap=6, pad=[24, 24, 16, 24]),
+        inset(rows),
+        inset(row("Files", icon(20, 6), T("No access to all your files: you pick each folder "
+                  "you share, and files you receive go to Download/LocalDrop.", 12,
+                  color=MUTE, wrap=True), pad=12, align="min", cornerRadius=12,
+                  strokes=[LINE], strokeWeight=1), pad=(14, 16, 0, 16)),
+        footer=col("Footer", link(button("Continue", full=True), "looking"),
+                   link(T("Skip for now", 13, "Semi Bold", MUTE, name="Skip"), "looking"),
+                   gap=12, crossAlign="center", pad=[12, 24, 30, 24]),
+    )
+
+
+# 5. desktop: inside a folder of the other PC (remote-only mode)
+def d_remote_folder():
+    w = (90, 110, 120)
+    tbl = card(
+        frow("Name", ("Size", "Type", "Modified"), w, header=True),
+        divider(0),
+        frow("2024", ("1 204 items", "Folder", "Today"), w, checked=False, trailing="›"),
+        divider(48),
+        frow("2023", ("980 items", "Folder", "3 Jan"), w, checked=False, trailing="›"),
+        divider(48),
+        frow("IMG_0001.jpg", ("4.1 MB", "JPEG image", "12 Mar"), w, checked=True),
+        divider(48),
+        frow("IMG_0002.jpg", ("3.8 MB", "JPEG image", "12 Mar"), w, checked=True),
+        divider(48),
+        frow("VID_0003.mp4", ("812 MB", "MP4 video", "14 Mar"), w, checked=False),
+        divider(48),
+        frow("notes.txt", ("2 KB", "Text", "15 Mar"), w, checked=False),
+    )
+    toolbar = row("Toolbar", side_toggle(True), link(nav_btns(), "d-remote"),
+                  link(crumbs("Dmytro's Laptop", "Photos", "Camera"), "d-remote"), spacer(),
+                  disc_pill(), search(110), seg("Remote", "Split", active=0), gap=10)
+    access = row("Access", T("Your access in Photos:", 12, color=MUTE),
+                 perm_chips("Browse", "Download", "Upload", "Delete → Trash"), spacer(),
+                 T("Sort: Name ▾", 12, "Medium", MUTE), gap=8)
+    actions = row("Actions", T("2 selected · 7.9 MB", 13, "Semi Bold"), spacer(),
+                  button("Rename", primary=False, small=True),
+                  link(button("Delete", primary=False, small=True), "d-delete"),
+                  button("Download to…", primary=False, small=True),
+                  link(button("Download", small=True), "d-transfers"), gap=8)
+    hint = link(row("Drop hint", icon(20, 6), T("Drop files here to upload into Photos / "
+                    "Camera. Downloads go to your Downloads folder unless you pick another.",
+                    13, color=MUTE, wrap=True), pad=14, cornerRadius=12, strokes=[LINE],
+                    strokeWeight=1), "d-drop")
+    return window("Desktop / 28 Browse — remote folder", "laptop", main_area(
+        toolbar, access, tbl, actions, hint, fill_v(), transfer_bar(), gap=14))
+
+
+# 6. phone: left tab inside a folder, copy to the right tab
+def p_local_folder():
+    rows = card(
+        p_row("IMG_2210.jpg", "3.6 MB · today", checked=True), divider(100),
+        p_row("IMG_2211.jpg", "3.9 MB · today", checked=True), divider(100),
+        p_row("VID_2212.mp4", "640 MB · today", checked=True), divider(100),
+        p_row("IMG_2208.jpg", "4.0 MB · yesterday", checked=False), divider(100),
+        p_row("IMG_2207.jpg", "3.7 MB · yesterday", checked=False),
+    )
+    target = link(row("Target", T("Copies to", 12, color=MUTE),
+                      T("Dmytro's Laptop › Photos / Camera", 13, "Semi Bold"), spacer(),
+                      T("Change", 12, "Semi Bold", MUTE), gap=6, pad=[8, 16, 8, 16],
+                      fills=[SURF]), "files-remote")
+    return phone(
+        "Phone / 31 Files — left tab, in a folder",
+        panel_tabs(0),
+        path_bar("This phone", "DCIM", "Camera", up="files-local"),
+        inset(rows, pad=(0, 12, 0, 12)),
+        footer=col("Bottom", target,
+                   row("Selection", T("3 selected · 648 MB", 13, "Semi Bold"), spacer(),
+                       T("Select all", 13, "Medium", MUTE), pad=[8, 16, 8, 16], fills=[BG]),
+                   cmd_bar(("Copy → right", True, "transfers"), ("Move → right", False),
+                           ("Send to…", False, "send"), ("Delete", False), ("More", False)),
+                   gap=0),
+        nav="Files",
+    )
+
+
 # ---------------------------------------------------------------- settings (phone)
 def p_group():
     return phone(
@@ -2181,6 +2509,7 @@ def p_known():
                                           layout="horizontal", gap=-10, crossAlign="max",
                                           sizingH="hug", sizingV="hug"),
                         trailing=trailing or "›", pad_x=16)
+    dev = (lambda f: lambda *a: link(f(*a), "device"))(dev)
     return phone(
         "Phone / 15 Known devices",
         app_bar("Known devices", "4 devices in group home", back=True),
@@ -2356,6 +2685,15 @@ SCREENS = {
     "add-share": (p_add_share, 23),
     "details": (p_details, 24),
     "delete": (p_delete, 25),
+    "d-device": (d_device, 124),
+    "d-connect": (d_connect, 125),
+    "d-tray": (d_tray, 126),
+    "d-remote-folder": (d_remote_folder, 127),
+    "device": (p_device, 26),
+    "connect": (p_connect, 27),
+    "notifs": (p_notifs, 28),
+    "perms": (p_perms, 29),
+    "local-folder": (p_local_folder, 30),
 }
 
 
@@ -2418,7 +2756,8 @@ def build(name):
 FLOWS = {"Desktop": "d-join", "Phone": "join",
          "Desktop · new network": "d-new-net", "Phone · new network": "new-net",
          "Desktop · incoming request": "d-incoming", "Phone · incoming request": "incoming",
-         "Desktop · key changed": "d-key", "Phone · key changed": "key"}
+         "Desktop · key changed": "d-key", "Phone · key changed": "key",
+         "Desktop · tray & notifications": "d-tray", "Phone · notifications": "notifs"}
 
 
 def _text(m):
