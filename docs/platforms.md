@@ -76,6 +76,21 @@ System notifications: incoming request (Decline / Review), job finished, untrust
 network (Not now / Trust), a device with queued files is back. Clicking one opens the
 matching screen.
 
+## Empty states
+
+Every list explains what it is for and offers the next step instead of showing nothing:
+
+| Where | Text | Action |
+|---|---|---|
+| Devices (nobody found yet) | *Looking for your devices…* with the three join steps | Connect by address… |
+| Transfers | *Nothing is being sent*: how to send (drag onto a device, Explorer / Share menu) and that files for offline devices wait here | Send files… / Choose files; History |
+| Shared folders | *You don't share any folders*: devices can't see your files but can still send to your Inbox | Share a folder; Receive folder… |
+| A device that shares nothing with you | Only its Inbox is listed, with *Nothing shared with you* and where to add a share on that device | Send files… |
+| Empty folder / no search results | *This folder is empty* / *Nothing matches “…”* | — |
+
+On desktop, an empty Transfers screen also shows a hint when this PC shares nothing,
+since that is the usual reason a new user sees no activity.
+
 ## Mobile first run
 
 After joining, one screen lists the permissions with the reason for each, in this

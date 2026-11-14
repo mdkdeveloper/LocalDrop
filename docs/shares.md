@@ -125,6 +125,25 @@ the owner compares the job manifest with what is on disk before any data is sent
 
 Modes that need `delete` are not offered when `delete = Deny`.
 
+#### Confirming `Mirror`
+
+Choosing *Replace the whole folder* in the conflict dialog opens a second confirm
+before anything is sent, because it removes files that the upload never mentions. It
+shows:
+
+- the counts: new files added, files replaced, files **removed** (the last one stands
+  out);
+- where removed and replaced files go, from the folder's `delete` setting (Trash on that
+  device, so they can be restored);
+- the first few removed files and *Show all n*;
+- *Back* (to the conflict dialog) and a red button that names the number:
+  **Remove 37 files and replace**.
+
+If the folder deletes **permanently**, the button stays disabled until the user ticks
+"I understand these files can't be restored". If nothing would be removed, there is no
+second confirm. When a folder's conflict mode is `Auto(Mirror)` no dialog appears per
+job; the same summary is shown once when that mode is set.
+
 Identical files are never counted as conflicts and are not re-sent. "Identical" means
 **same size and same mtime** (like rsync's quick check), because hashing an existing
 10 GB file just to compare would take minutes. Both sides keep a hash cache

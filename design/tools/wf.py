@@ -440,7 +440,7 @@ def p_devices_sheet():
         col("Lists",
             T("ONLINE", 11, "Semi Bold", MUTE, letterSpacing=0.6),
             dev("Dmytro's Laptop", "Windows · Online", True, "files-root", sel=True),
-            dev("Desk PC", "Linux · Online · receiving", True, "files-root"),
+            dev("Desk PC", "Linux · Online · receiving", True, "files-root-empty"),
             T("KNOWN · OFFLINE", 11, "Semi Bold", MUTE, letterSpacing=0.6),
             dev("iPad", "Last seen 2 h ago", False, "files-offline", t=chip("3 queued")),
             dev("Work MacBook", "Last seen yesterday", False, "files-offline"),
@@ -604,7 +604,8 @@ def p_transfers():
                     meta="Queued 2 h ago", action="×"), "files-offline"))
     incoming = card(
         job("Backup.zip from Desk PC", "18.0 GB · into Folders/Backups", 0.72,
-            meta="13.0 of 18.0 GB · 11.6 MB/s", action="×"),
+            meta="13.0 of 18.0 GB · 11.6 MB/s",
+            action=link(T("⋮", 18, "Medium", MUTE, name="More"), "job-menu")),
         divider(14),
         job("Docs from Work MacBook", "12 files already exist", state="Needs decision",
             action=link(button("Resolve", small=True), "conflict")),
@@ -640,8 +641,8 @@ def p_conflict():
                    selected=True),
             option("Replace, keep a backup", "Old versions go to the folder's backups."),
             option("Replace conflicting files", "Old versions are moved to the Trash."),
-            option("Replace the whole folder", "Also removes files that aren't in this "
-                   "upload (Trash)."),
+            link(option("Replace the whole folder", "Also removes files that aren't in this "
+                        "upload (Trash)."), "mirror"),
             gap=8),
         T("Show the 12 files", 13, "Semi Bold", INK),
         row("Actions", link(button("Cancel", primary=False, full=True), "back"),
@@ -707,6 +708,9 @@ def side_item(label, active=False, lead="icon", trailing=None, sub=None, to=None
 
 
 def sidebar(active, disc=True):
+    idle = active == "transfers-empty"   # nothing queued anywhere
+    if idle:
+        active = "transfers"
     dev = lambda n, s, on, a=False, t=None, to=None: side_item(  # noqa: E731
         n, a, lead=F("Avatar", R(28, 28, BLOCK, 14), status_dot(on), layout="horizontal",
                      gap=-8, crossAlign="max", sizingH="hug", sizingV="hug"),
@@ -721,17 +725,18 @@ def sidebar(active, disc=True):
                       sub="No devices yet")]) if disc == "empty" else
           ([T("DEVICES", 11, "Semi Bold", MUTE, letterSpacing=0.6),
             dev("Dmytro's Laptop", "Online", True, active == "laptop", to="d-remote"),
-            dev("Desk PC", "Online · receiving", True),
+            dev("Desk PC", "Online" if idle else "Online · receiving", True, active == "desk",
+                to="d-remote-empty"),
             T("KNOWN · OFFLINE", 11, "Semi Bold", MUTE, letterSpacing=0.6)] if disc else
            [T("KNOWN · NOT SEARCHING", 11, "Semi Bold", MUTE, letterSpacing=0.6),
             dev("Dmytro's Laptop", "Status unknown", False, active == "laptop"),
             dev("Desk PC", "Status unknown", False)]) + [
-            dev("iPad", "2 h ago · 3 queued", False, active == "ipad", t=chip("3"),
-                to="d-offline"),
+            dev("iPad", "2 h ago" if idle else "2 h ago · 3 queued", False, active == "ipad",
+                t=None if idle else chip("3"), to="d-offline"),
             dev("Work MacBook", "Yesterday", False)]),
         F("Fill", layout="vertical", sizingH="fill", sizingV="fill"),
         side_item("Transfers", active == "transfers",
-                  trailing=None if disc == "empty" else chip("2", True),
+                  trailing=None if disc == "empty" or idle else chip("2", True),
                   to="d-transfers"),
         side_item("Settings", active == "settings", to="d-general"),
         gap=4, pad=[16, 12, 16, 12], sizingH="fixed", sizingV="fill", w=264,
@@ -1198,7 +1203,7 @@ def d_transfers(name="Desktop / 06 Transfers"):
                             0.34, meta="1.1 of 3.1 GB · 11.4 MB/s · 3 min left", action="×"),
                         "d-details"),
                    job("contract.pdf", "2.4 MB → Inbox", meta="Next · drag to reorder",
-                       action="×"),
+                       action=link(T("⋮", 18, "Medium", MUTE, name="More"), "d-job-menu")),
                    actions=("Pause",)),
         pair_group("To iPad", "Offline · waiting",
                    job("Photos for mom", "48 files · 210 MB → Inbox", meta="Queued 2 h ago",
@@ -1259,8 +1264,8 @@ def d_conflict():
                    selected=True),
             option("Replace, keep a backup", "Old versions go to Settings › Backups."),
             option("Replace conflicting files", "Old versions are moved to the Trash."),
-            option("Replace the whole folder", "Also removes files that aren't in this "
-                   "upload (Trash)."),
+            link(option("Replace the whole folder", "Also removes files that aren't in this "
+                        "upload (Trash)."), "d-mirror"),
             gap=8),
         row("Remember", checkbox(False), T("Always do this for Projects (sets the folder's "
             "conflict mode to Auto)", 13, color=INK, wrap=True), align="min", gap=10),
@@ -2929,6 +2934,301 @@ def p_recv():
     )
 
 
+# ---------------------------------------------------------------- P4 screens
+# 1. empty states
+def empty_state(title, body, *actions, phone=False, name="Empty"):
+    return col(name, icon(48 if not phone else 44, 14),
+               T(title, 18 if not phone else 17, "Bold", textAlignHorizontal="center"),
+               T(body, 13, color=MUTE, wrap=True, textAlignHorizontal="center"),
+               *( [row("Actions", *actions, gap=10, sizingH="fill" if phone else "hug",
+                       mainAlign="center")] if actions else []),
+               gap=12, pad=28 if not phone else 20, crossAlign="center", fills=[SURF],
+               cornerRadius=16)
+
+
+def centered(box, w=480):
+    return row("Center", F("Box", box, layout="vertical", sizingH="fixed", w=w,
+                           sizingV="hug"), mainAlign="center")
+
+
+def d_empty_transfers():
+    toolbar = row("Toolbar", side_toggle(True), T("Transfers", 22, "Bold"),
+                  T("Nothing in progress", 13, color=MUTE), spacer(), disc_pill(),
+                  seg("All", "Outgoing", "Incoming", active=0, links={}), gap=12)
+    box = empty_state(
+        "Nothing is being sent", "Drag files onto a device in the sidebar, or right-click "
+        "them in Explorer › Send with LocalDrop. Files for a device that's offline wait here "
+        "until it's back.", link(button("Send files…"), "d-send"))
+    hint = link(row("Hint", icon(20, 6), T("Your devices can't browse this PC yet: you don't "
+                    "share any folders.", 13, color=MUTE, wrap=True),
+                    T("Share a folder  ›", 13, "Semi Bold"), pad=[10, 14, 10, 14],
+                    cornerRadius=10, strokes=[LINE], strokeWeight=1), "d-no-shares")
+    return window("Desktop / 36 Transfers — empty", "transfers-empty", main_area(
+        toolbar, fill_v("Top"), centered(box), centered(hint, 480),
+        fill_v("Bottom"),
+        T("Finished transfers stay in the list until you clear them; History keeps the last "
+          "30 days.", 12, color=MUTE, textAlignHorizontal="center", wrap=True), gap=16))
+
+
+def d_no_shares():
+    box = empty_state(
+        "You don't share any folders", "Devices in your group can't see any files on this "
+        "PC. They can still send you files: those go to your Inbox (Downloads\\LocalDrop).",
+        link(button("+  Share a folder"), "d-add-share"),
+        link(button("Receive folder…", primary=False), "d-recv"))
+    tips = col("Tips", info_line("A shared folder is browse + download only until you allow "
+                                 "more."),
+               info_line("You choose who sees it: all members or selected devices."), gap=8)
+    return settings_window("Desktop / 37 Shared folders — empty", 1, fill_v("Top"),
+                           centered(col("Wrap", box, tips, gap=16), 520), fill_v("Bottom"))
+
+
+def d_remote_empty():
+    w = (90, 270, 100)
+    inbox_lead = F("Inbox icon", T("↓", 14, "Bold", SURF), layout="horizontal",
+                   mainAlign="center", crossAlign="center", w=24, h=24, sizingH="fixed",
+                   sizingV="fixed", cornerRadius=6, fills=[DARK])
+    tbl = card(
+        frow("Name", ("Size", "Your access", "Modified"), w, header=True), divider(0),
+        link(frow("Inbox", ("—", perm_chips("Upload only"), "—"), w, checked=False,
+                  lead=inbox_lead, sub="Files you send land in Downloads/LocalDrop",
+                  trailing="›"), "d-send"))
+    head = row("Device head", avatar(True), col("Text", T("Desk PC", 22, "Bold"),
+               T("Linux · Online · shares no folders with you", 13, color=MUTE), gap=2),
+               link(button("Send files…", primary=False, small=True), "d-send"), gap=14)
+    toolbar = row("Toolbar", side_toggle(True), nav_btns(), crumbs("Desk PC"), spacer(),
+                  disc_pill(), search(), seg("Remote", "Split", active=0), gap=12)
+    box = empty_state("Desk PC doesn't share any folders with this PC",
+                      "You can still send files to its Inbox. To browse its files, add a "
+                      "shared folder on Desk PC (Settings › Shared folders) for all members "
+                      "or for this PC.")
+    return window("Desktop / 38 Browse — device shares nothing", "desk", main_area(
+        toolbar, head, tbl, fill_v("Top"), centered(box, 520), fill_v("Bottom"),
+        transfer_bar(), gap=16))
+
+
+def p_empty_transfers():
+    return phone(
+        "Phone / 39 Transfers — empty",
+        app_bar("Transfers", "Nothing in progress", actions=("Filter",)),
+        inset(row("Tabs", chip("All", True), chip("Outgoing"), chip("Incoming"), spacer(),
+                  link(T("History  ›", 13, "Semi Bold", name="History"), "history"), gap=8),
+              pad=(4, 20, 4, 20)),
+        inset(empty_state("Nothing is being sent", "Share files from any app and pick "
+                          "LocalDrop, or select them in Files. Files for a device that's "
+                          "offline wait here.",
+                          link(button("Choose files", full=True), "files-local"),
+                          phone=True), pad=(40, 16, 0, 16)),
+        nav="Transfers")
+
+
+def p_empty_folders():
+    return phone(
+        "Phone / 40 Shared folders — empty",
+        app_bar("Shared folders", "What your group can see on this phone"),
+        inset(empty_state("You don't share any folders", "Your devices can't see files on "
+                          "this phone. They can still send you files: those go to the Inbox.",
+                          link(button("+  Share a folder", full=True), "add-share"),
+                          phone=True), pad=(24, 16, 0, 16)),
+        section("Receiving"),
+        inset(card(link(list_row("Inbox", "Download/LocalDrop · files sent to you",
+                                 trailing="›", pad_x=16), "recv"))),
+        nav="Folders")
+
+
+def p_files_root_empty():
+    return phone(
+        "Phone / 41 Files — device shares nothing",
+        panel_tabs(1, peer="Desk PC"),
+        path_bar("Desk PC", actions=()),
+        inset(row("Device", avatar(True, 36), col("Text", T("Desk PC", 15, "Semi Bold"),
+                  T("Linux · Online · shares no folders", 12, color=MUTE), gap=2),
+                  link(T("Switch", 13, "Semi Bold", INK, name="Switch device"), "devices"),
+                  pad=14, fills=[SURF], cornerRadius=14), pad=(4, 12, 0, 12)),
+        section("Send to this device"),
+        inset(card(link(p_row("Inbox", "Upload only · lands in Downloads/LocalDrop",
+                              lead=glyph_icon("↓"), trailing="›"), "send")),
+              pad=(0, 12, 0, 12)),
+        inset(empty_state("Nothing shared with you", "To browse Desk PC, add a shared folder "
+                          "on it for all members or for this phone.", phone=True),
+              pad=(16, 12, 0, 12)),
+        nav="Files")
+
+
+# 2. job action menus
+def menu_box(*kids, w=260):
+    return col("Menu", *kids, gap=0, pad=[6, 6, 6, 6], sizingH="fixed", w=w, fills=[SURF],
+               cornerRadius=10, strokes=[LINE], strokeWeight=1,
+               effects=[{"type": "dropShadow", "color": "#00000026", "offset": [0, 8],
+                         "radius": 24}])
+
+
+def danger_item(label, sub=None, to=None):
+    """Destructive menu entry (red in the styled screens)."""
+    r = menu_item(label, sub, to=to)
+    r["name"] = f"Item / Danger {label}"
+    return r
+
+
+def d_job_menu():
+    menu = menu_box(
+        col("Menu head", T("contract.pdf", 13, "Semi Bold"),
+            T("To Dmytro's Laptop · next in queue", 11, color=MUTE), gap=1, pad=[6, 12, 6, 12]),
+        menu_sep(),
+        menu_item("Pause", "Keeps its place in the queue"),
+        menu_item("Move to top", "Sent right after the current file"),
+        menu_item("Show details", to="d-details"),
+        menu_item("Show in folder", "Where it's sent from"),
+        menu_sep(),
+        danger_item("Remove from queue", to="back"))
+    win = d_transfers("Desktop / 39 Job actions")
+    pop = F("Popover", menu, layout="vertical", sizingH="hug", sizingV="hug", absolute=True)
+    pop["xy"] = (500, 326)
+    win["kids"].append(pop)
+    return win
+
+
+def sheet_item(label, sub=None, to=None, danger=False):
+    r = row(f"Item / {'Danger ' if danger else ''}{label}", icon(24, 7),
+            col("Text", T(label, 15, "Medium"), *( [T(sub, 12, color=MUTE)] if sub else []),
+                gap=1), pad=[10, 4, 10, 4])
+    return link(r, to) if to else r
+
+
+def p_job_menu():
+    return psheet(
+        "Phone / 42 Job actions",
+        row("Head", icon(36, 10), col("Text", T("Backup.zip", 17, "Bold"),
+            T("From Desk PC · 72% · 13.0 of 18.0 GB", 13, color=MUTE), gap=2)),
+        col("Items",
+            sheet_item("Pause", "Desk PC sends other files meanwhile"),
+            sheet_item("Show details", to="details"),
+            sheet_item("Open destination folder", "Folders/Backups"),
+            sheet_item("Cancel transfer", "The partial file is deleted", to="back",
+                       danger=True),
+            gap=0),
+        link(button("Close", primary=False, full=True), "back"))
+
+
+# 3. Mirror confirm ("Replace the whole folder")
+def mirror_rows(where):
+    def r(n, text, sub, strong=False):
+        return row(f"Set / {text}", F("Count", T(n, 15, "Bold", SURF if strong else INK),
+                                      layout="horizontal", mainAlign="center",
+                                      crossAlign="center", w=44, h=28, sizingH="fixed",
+                                      sizingV="fixed", cornerRadius=8,
+                                      fills=[DARK if strong else BLOCK]),
+                   col("Text", T(text, 14, "Semi Bold" if strong else "Medium"),
+                       T(sub, 12, color=MUTE, wrap=True), gap=2), gap=12, align="min")
+    return col("Summary",
+               r("230", "new files added", "Not in Projects yet."),
+               r("12", "files replaced", f"Old versions go to the Trash {where}."),
+               r("37", "files removed", f"They aren't in Docs. They go to the Trash {where}, "
+                 "where you can restore them.", strong=True),
+               gap=14)
+
+
+def removed_list():
+    return col("Files", *[row(f"Conflict / {n}", icon(20, 5), T(n, 13, "Medium"), spacer(),
+                              T(s, 12, color=MUTE), gap=10, pad=[6, 12, 6, 12])
+                          for n, s in (("old-plan.docx", "60 KB · 2023"),
+                                       ("drafts/brief-v1.md", "4 KB · 2023"),
+                                       ("archive/2022/", "18 files"))],
+               row("More", T("+ 34 more", 12, "Medium", MUTE), spacer(),
+                   T("Show all 37", 12, "Semi Bold"), pad=[6, 12, 6, 12]),
+               gap=0, fills=[BG], cornerRadius=10)
+
+
+def d_mirror():
+    dlg = dialog_box(
+        T("Make Projects an exact copy of Docs?", 20, "Bold"),
+        T("Docs from Work MacBook → Projects on this PC. Files that aren't in Docs are "
+          "removed from Projects.", 14, color=MUTE, wrap=True),
+        mirror_rows("on this PC"),
+        removed_list(),
+        T("If this folder deleted permanently, you would also have to tick “I understand "
+          "these files can't be restored”.", 12, color=MUTE, wrap=True),
+        row("Actions", link(button("Back", primary=False), "back"), spacer(),
+            link(button("Remove 37 files and replace"), "d-transfers"), gap=10),
+        w=560)
+    return modal(d_transfers("x"), "Desktop / 40 Replace whole folder", dlg)
+
+
+def p_mirror():
+    return psheet(
+        "Phone / 43 Replace whole folder",
+        T("Make Projects an exact copy of Docs?", 20, "Bold", wrap=True),
+        T("Uploading Docs to Work MacBook › Projects. Files that aren't in Docs are removed "
+          "there.", 14, color=MUTE, wrap=True),
+        mirror_rows("on Work MacBook"),
+        removed_list(),
+        col("Actions", link(button("Remove 37 files and replace", full=True), "transfers"),
+            link(button("Back", primary=False, full=True), "back"), gap=8))
+
+
+# 4. receiver runs out of space mid-transfer
+def space_banner(title, body, *actions):
+    return row("Space", icon(20, 6, DARK),
+               col("Text", T(title, 14, "Semi Bold"), T(body, 13, color=MUTE, wrap=True),
+                   *( [row("Actions", *actions, gap=8, sizingH="hug")] if actions else []),
+                   gap=6),
+               pad=14, align="min", cornerRadius=12, fills=[SURF], strokes=[DARK],
+               strokeWeight=1.5)
+
+
+def d_low_space():
+    files = card(
+        row("Head", T("Files", 14, "Semi Bold"), spacer(),
+            row("Filter", chip("All", True), chip("Waiting · 50"), chip("Done · 35"), gap=6,
+                sizingH="hug"), pad=[12, 16, 6, 16]),
+        file_state("VID_0231.mp4", "2.1 GB", "Paused", "1.3 GB received and kept · continues "
+                   "from there", strong=True),
+        divider(56),
+        file_state("VID_0232.mp4", "1.8 GB", "Waiting"), divider(56),
+        file_state("VID_0233.mp4", "940 MB", "Waiting"), divider(56),
+        file_state("VID_0230.mp4", "1.2 GB", "Done"))
+    head = row("Header", link(T("‹", 26, "Medium", name="Back"), "back"), icon(40, 12),
+               col("Text", T("Videos from Desk PC", 20, "Bold"),
+                   T("86 files · 24.0 GB · into Downloads\\LocalDrop\\Videos", 13,
+                     color=MUTE), gap=2),
+               chip("Paused · low on space", True),
+               link(button("Cancel job", primary=False, small=True), "back"), gap=12)
+    stats = row("Stats", *[col(f"Stat {k}", T(k, 12, color=MUTE), T(v, 16, "Semi Bold"), gap=2,
+                               sizingH="fill")
+                           for k, v in (("Received", "9.8 of 24.0 GB"), ("Files", "35 of 86"),
+                                        ("Still needed", "14.2 GB"), ("Free on C:", "0.9 GB"))],
+                gap=16, pad=16, fills=[SURF], cornerRadius=12)
+    banner = space_banner(
+        "Paused: drive C: is almost full",
+        "LocalDrop stopped before the disk filled up. Free up 13.3 GB and it continues on "
+        "its own (checked every 30 s), or put the rest of this job into another folder.",
+        button("Open folder", primary=False, small=True),
+        button("Put the rest elsewhere…", primary=False, small=True))
+    return window("Desktop / 41 Low space while receiving", "transfers", main_area(
+        head, col("Progress", progress(0.41), gap=0), stats, banner, files,
+        T("Desk PC shows “Paused · receiver low on space” and can cancel too.", 12,
+          color=MUTE), gap=14))
+
+
+def p_low_space():
+    inc = card(job("Videos from Desk PC", "35 of 86 files · into Download/LocalDrop", 0.41,
+                   state="Paused · low on space", meta="9.8 of 24.0 GB",
+                   action=link(T("⋮", 18, "Medium", MUTE, name="More"), "job-menu")))
+    return phone(
+        "Phone / 44 Low space while receiving",
+        app_bar("Transfers", "1 paused", actions=("Filter",)),
+        inset(space_banner("Phone storage is almost full",
+                           "Videos from Desk PC paused: 14.2 GB still to come, 0.9 GB free. "
+                           "It continues by itself when there's space.",
+                           button("Free up space", primary=False, small=True),
+                           link(button("Other folder", primary=False, small=True), "recv")),
+              pad=(4, 16, 0, 16)),
+        section("Incoming"), inset(inc),
+        inset(T("Files already received stay. Desk PC sees that the job is paused.", 12,
+                color=MUTE, wrap=True), pad=(12, 20, 0, 20)),
+        nav="Transfers")
+
+
 SCREENS = {
     "d-join": (d_join, 99),
     "d-remote": (d_remote, 100),
@@ -3004,6 +3304,18 @@ SCREENS = {
     "history": (p_history, 35),
     "join-error": (p_join_error, 36),
     "recv": (p_recv, 37),
+    "d-empty-transfers": (d_empty_transfers, 135),
+    "d-no-shares": (d_no_shares, 136),
+    "d-remote-empty": (d_remote_empty, 137),
+    "d-job-menu": (d_job_menu, 138),
+    "d-mirror": (d_mirror, 139),
+    "d-low-space": (d_low_space, 140),
+    "empty-transfers": (p_empty_transfers, 38),
+    "empty-folders": (p_empty_folders, 39),
+    "files-root-empty": (p_files_root_empty, 40),
+    "job-menu": (p_job_menu, 41),
+    "mirror": (p_mirror, 42),
+    "low-space": (p_low_space, 43),
 }
 
 
@@ -3024,6 +3336,7 @@ def emit(node, parent, steps, xy=None):
         params["height"] = node["h"]
     if parent:
         params["parent"] = {"$ref": parent}
+    xy = xy or node.get("xy")
     if xy:
         params["x"], params["y"] = xy
     steps.append({"command": "node.create", "as": ref, "params": params})
@@ -3069,7 +3382,11 @@ FLOWS = {"Desktop": "d-join", "Phone": "join",
          "Desktop · key changed": "d-key", "Phone · key changed": "key",
          "Desktop · tray & notifications": "d-tray", "Phone · notifications": "notifs",
          "Desktop · queued files changed": "d-changed", "Phone · queued files changed": "changed",
-         "Desktop · join errors": "d-join-error", "Phone · join errors": "join-error"}
+         "Desktop · join errors": "d-join-error", "Phone · join errors": "join-error",
+         "Desktop · no transfers": "d-empty-transfers", "Phone · no transfers": "empty-transfers",
+         "Desktop · nothing shared": "d-no-shares", "Phone · nothing shared": "empty-folders",
+         "Desktop · low space (receiving)": "d-low-space",
+         "Phone · low space (receiving)": "low-space"}
 
 
 def _text(m):

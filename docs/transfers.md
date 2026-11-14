@@ -72,6 +72,30 @@ For each peer, both directions:
 - a folder split into many units is **one row**; expanding shows files (optional);
 - actions: **Cancel** job, Pause / Resume job, Retry failed, Move up, Clear completed.
 
+### Job actions
+
+Each job row has a **⋮** menu (desktop: also right-click; phone: a bottom sheet with
+the job's name and progress on top). It lists only what fits the job's state;
+destructive entries come last, in red:
+
+| State | Actions |
+|---|---|
+| Sending / Receiving | Pause, Show details, Show in folder¹, **Cancel** |
+| Next in queue / Waiting for device | Pause, Move to top, Show details, Show in folder¹, **Remove from queue** |
+| Paused | Resume, Move to top, Show details, **Cancel** |
+| Waiting for decision | Resolve (opens the conflict or accept dialog), Show details, **Cancel** |
+| Paused · low on space | Show details, Open folder², Put the rest elsewhere…², **Cancel** |
+| No answer | Offer again now, Show details, **Remove** |
+| Completed with errors / Failed | Retry failed, Show details, Show in folder¹, Clear |
+| Completed / Cancelled | Show in folder¹, Clear |
+
+¹ Sender: where the files are sent from; receiver: where they landed.
+² Receiver only.
+
+*Pause* keeps the job's place in the queue; the peer serves its other jobs meanwhile.
+*Move to top* puts the job right after the unit in flight (it is never interrupted).
+Cancelling a running job asks nothing; finished files stay, the partial file is deleted.
+
 **Transfer details** (click a job): totals, speed, ETA, banners (low space on the
 receiver), and the file list with a filter (*All / Failed / Waiting / Done*). Each file
 shows its state from the table below; failed files have **Retry**, and the job has
@@ -212,6 +236,18 @@ the disk is full**:
 - the receiver re-checks every 30 s and continues on its own (`JobAccept{resume}`) when
   enough space is free; either side can also Cancel, or the receiver can change the
   destination for the rest of the job.
+
+On the receiver the job shows *Paused · low on space* and a banner with the numbers
+("Paused: drive C: is almost full · 14.2 GB still needed, 0.9 GB free"):
+
+- desktop, in the transfer details: **Open folder** and **Put the rest elsewhere…**;
+  phone, on top of Transfers: **Free up space** (opens the system storage settings) and
+  **Other folder**; a notification is shown too;
+- *Put the rest elsewhere…* changes the destination for the files not yet finalized.
+  Finished files stay where they are; the remaining files keep their relative paths
+  under the new folder. The partial file of the paused file is deleted and that file
+  starts again in the new folder (moving it could mean copying gigabytes between
+  drives). The new folder gets the usual free-space and file-size checks first.
 
 ### Reading and writing efficiently
 

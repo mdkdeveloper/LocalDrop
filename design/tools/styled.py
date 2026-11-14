@@ -197,7 +197,7 @@ CTX_NAMES = {"Device head", "Device", "From", "Offline note", "Drop hint", "Back
              "Transfer bar", "Space", "Note", "Mode", "Banner", "Hint", "Add hint", "Found",
              "Key warning", "Fat", "Brand", "Drop zone", "Search", "Info", "Shared icon",
              "Inbox icon", "Menu", "Files", "Offline", "Queue", "Header", "Looking", "Tray",
-             "LocalDrop tray icon", "Discovery off", "Hero", "Start", "Sub"}
+             "LocalDrop tray icon", "Discovery off", "Hero", "Start", "Sub", "Empty"}
 # used only when no stronger context is around (a job's "Head" must not hide its "Job / …")
 WEAK_CTX = {"Head", "Field", "Search bar", "Sheet", "Paused", "Radar", "Hero", "Body", "Main"}
 IMG, VID, AUD = (".jpg", ".jpeg", ".png", ".heic"), (".mp4", ".mov"), (".mp3", ".flac")
@@ -251,6 +251,14 @@ def pick(ctx_name, title, label, size):
         if lab.startswith("searching"):
             return "wifi"
         return "folder"
+    if ctx_name == "Empty":
+        return "transfers" if "being sent" in lab else "share"
+    if cat == "Item":
+        lab = lab.removeprefix("danger ")
+        for key, kind in (("pause", "pause"), ("details", "info"), ("folder", "folder"),
+                          ("cancel", "x"), ("remove", "trash"), ("move", "upload")):
+            if lab.startswith(key) or key in lab:
+                return kind
     name = ctx_name.lower()
     if ctx_name == "Transfer bar":
         return "upload"
@@ -348,6 +356,14 @@ def restyle(node, ctx=("", "", ""), bg=None, unmatched=None):
             and bg == wf.DARK:
         p.pop("stroke", None)
         p["stroke"] = V("color/on-accent")
+
+    # warning banners: outlined in the warning colour, not the accent
+    if n["type"] == "frame" and name in ("Space", "Banner", "Key warning") and             node["props"].get("strokes") == [wf.DARK]:
+        p["stroke"] = V("color/warning")
+
+    # destructive menu entries → danger text
+    if n["type"] == "text" and ctx[0].startswith("Item / Danger ") and ctx[1] == n.get("text"):
+        p["fill"] = V("color/danger")
 
     # destructive primary buttons → danger
     if n["type"] == "frame" and name.startswith("Button / ") and             node["props"].get("fills") == [wf.DARK] and             re.match(r"Button / (Delete|Leave|Move to Trash|Remove|Forget|Clear all)", name):
