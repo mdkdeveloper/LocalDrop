@@ -28,7 +28,7 @@ until the device is online.
 
 | Platform | Mode | Behaviour |
 |---|---|---|
-| Windows, Linux, macOS | `OutboxStorage::Reference` | Store paths plus size and mtime of every file in the manifest. Nothing is read at enqueue time (fast even for huge folders). At send time a changed or missing file marks the job `SourceChanged` and the user chooses: send current version, skip changed files, or cancel. Files added to a queued folder later are **not** picked up (the manifest is fixed at enqueue). |
+| Windows, Linux, macOS | `OutboxStorage::Reference` | Store paths plus size and mtime of every file in the manifest. Nothing is read at enqueue time (fast even for huge folders). At send time a changed or missing file marks the job `SourceChanged` and the sender sees which files changed or disappeared, and chooses: **send the current versions** (default; missing files are skipped), **skip changed files**, **cancel the job**, or **later** (the job stays `SourceChanged` in the queue and the question comes back from Transfers). Files added to a queued folder later are **not** picked up (the manifest is fixed at enqueue). |
 | Android, iOS | `OutboxStorage::CopyToCache` | Copy into the app cache, because content URIs / security-scoped URLs from Share and pickers can expire. The copy is deleted when the job ends. Large folders: the UI shows the size and asks before copying. |
 
 Integrity is not checked at enqueue time: BLAKE3 hashes are computed during sending

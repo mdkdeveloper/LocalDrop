@@ -19,6 +19,18 @@ The inbox is always writable by group members (subject to the [accept
 policy](security.md#accept-policy)). It is **not** browsable remotely unless the user
 also adds it to the whitelist.
 
+- **Per-device overrides** (*Settings › Devices › device*): each known device can have its
+  own `inbox_dir` and `deferred_inbox_dir`; *Like the app default* otherwise.
+- **`job_subfolder`** (default **on**): a job with more than one top-level item lands in
+  its own subfolder named after the job (`Inbox/Holiday 2024/…`); a single file or folder
+  lands directly in the inbox. Applies to the inbox only, never to shares.
+- **Picking a folder** shows the free space of its volume and warns, without blocking,
+  when it is inside a [cloud sync folder](receiving.md#cloud-sync-folders) or on a FAT32
+  volume (files ≥ 4 GiB can't be received there).
+- Android offers `Download/LocalDrop` (MediaStore, default), *Another folder…* (SAF tree,
+  persistable permission for that folder only) and the SD card when present. iOS keeps
+  `Documents/Inbox`.
+
 ## Whitelist entries
 
 ```text
@@ -153,6 +165,12 @@ a rename, no copy):
 - **Backup browser** in the app: list sets per share (or for all shares), with size and
   date; restore one file / whole set, delete one set, or "clear all backups"
   (whole device or one share).
+- **Restoring** puts the old versions back; the current versions go to the Trash (Recycle
+  Bin / app trash), so a restore can be undone too. Files deleted since then come back as
+  they were. *Keep this backup set* (default on) keeps the set after restoring.
+- **Clearing** backups (one set, one share or all) deletes them **permanently**, not to
+  the Trash; the confirmation shows the sets and the total size. Current files are not
+  touched.
 - Optional retention (`BackupSettings`, inheritable like permissions): keep for N days
   and/or at most N GB per share; default *keep until cleared manually*.
 - Backups are local only; peers cannot browse or delete them.
@@ -162,7 +180,9 @@ a rename, no copy):
 ```text
 AppSettings {
   inbox_dir, deferred_inbox_dir
+  job_subfolder: bool                   // default: true
   accept:       AcceptSettings          // auto-accept / ask, per-device overrides
+  devices:      {DeviceId → DeviceSettings}  // accept, inbox_dir, deferred_inbox_dir overrides
   permissions:  SharePermissions        // defaults for shares
   conflicts:    ConflictPolicy          // default: Ask
   backups:      BackupSettings          // default: keep until cleared

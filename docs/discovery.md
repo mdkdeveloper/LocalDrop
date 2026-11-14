@@ -54,8 +54,15 @@ each device:
 
 ### Manual address
 
-The user can enter `ip[:port]`. The node connects directly; the handshake decides
-membership.
+The user can enter `ip[:port]` or a host name (*Connect by address*, offered on the
+"looking for devices" screen and in the device picker). The node connects directly; the
+handshake decides membership.
+
+- Port *Auto* means the default listening port; a fixed port only if the peer set one.
+- The address must be reachable through an active network (trusted, see
+  [networks.md](networks.md)) or an adapter the user added by hand, e.g. a VPN.
+- **Remember this address** (default on): the address is stored and tried again at
+  startup and after every network change, alongside normal discovery.
 
 ## Peer lifecycle
 

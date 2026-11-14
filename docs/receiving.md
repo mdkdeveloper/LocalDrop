@@ -43,8 +43,8 @@ time (one bundle), usually just one.
 
 If the destination is inside Dropbox/OneDrive/iCloud/Google Drive, their clients may
 start uploading the partial file. Hidden files are skipped by some clients but not all.
-The app detects well-known sync roots and shows a hint; it does not try to work around
-the sync client.
+The app detects well-known sync roots and shows a hint, also when the user picks such a
+folder as a receive folder; it does not try to work around the sync client.
 
 ## Lifecycle of one file
 

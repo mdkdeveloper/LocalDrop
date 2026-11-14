@@ -102,9 +102,15 @@ browsing stays responsive during a large transfer.
 | `ListShares` | `Shares[{share_id, name, effective_permissions}]` | — |
 | `ListDir{share_id, path, cursor}` | `DirPage{entries[{name, kind, size, mtime}], next_cursor}` | `browse` |
 | `Stat{share_id, paths[]}` | `Stats[...]` | `browse` |
+| `Search{share_ids[], query, cursor}` | `SearchPage{hits[{share_id, path, kind, size, mtime}], next_cursor}` | `browse` on each share |
 | `Download{share_id, paths[]}` | `DownloadStarted{job_id}` — the owner creates a job to the requester in its outgoing queue | `browse` + `download` |
 | `Delete{share_id, paths[]}` | `DeleteResult[{path, ok \| error}]` | `delete ≠ Deny`; the owner applies `Trash`/`Permanent` |
 | `MakeDir{share_id, path}` | `Ok \| Error` | `upload` |
+
+`Search` matches **file and folder names only** (case-insensitive substring), runs on
+the owner, and only inside shares the requester may browse; an empty `share_ids` means
+all of them. The owner caps work per request (time and hits per page) so a search can't
+stall it.
 
 Any request can be answered with `Denied` or `NotFound`. Uploads are not a request:
 they are a normal job with `destination = Share{..}`.

@@ -61,6 +61,30 @@ request and iOS apps have no trash API, so on mobile "Trash" means the **app tra
   `NSLocalNetworkUsageDescription` and `NSBonjourServices = [_localdrop._udp]`.
 - Sandboxed builds need `com.apple.security.network.client` and `.server`.
 
+## Desktop tray and notifications
+
+Closing the window keeps LocalDrop running in the tray (menu bar on macOS), so queues
+can still deliver. Tray menu:
+
+- group name and fingerprint;
+- **Discovery** switch with the network it runs on;
+- online devices with their current transfer and progress;
+- *Open LocalDrop*, *Send files…*, *Pause all transfers*, *Settings*;
+- *Quit* (queued jobs wait until the app runs again).
+
+System notifications: incoming request (Decline / Review), job finished, untrusted
+network (Not now / Trust), a device with queued files is back. Clicking one opens the
+matching screen.
+
+## Mobile first run
+
+After joining, one screen lists the permissions with the reason for each, in this
+order: **Nearby devices** (Android `NEARBY_WIFI_DEVICES`, iOS Local Network) — needed;
+**Notifications** — needed; **Run in background** (Android: exempt from battery
+optimisation) — advised; **Wi-Fi name** (location) — optional. Each has its own *Allow*
+button; *Continue* and *Skip for now* both lead on, and everything can be changed later
+in Settings. No broad file access is requested: shares are picked folder by folder.
+
 ## Android
 
 - Permissions: `INTERNET`, `ACCESS_WIFI_STATE`, `CHANGE_WIFI_MULTICAST_STATE`,
