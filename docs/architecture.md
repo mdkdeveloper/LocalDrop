@@ -32,7 +32,8 @@ folder sync, delivery through a third device when the sender is offline.
 | **Pair queue** | FIFO of jobs for one direction (this device → peer); one unit in flight. |
 | **Deferred job** | A job in a pair queue whose peer is offline. See [deferred-send.md](deferred-send.md). |
 | **Backup set** | Old versions saved by `ReplaceWithBackup`, browsable and clearable locally. |
-| **Active network** | An interface discovery runs on: Wi-Fi/Ethernet, allowed by the user's selection and the remembered network's rule. See [networks.md](networks.md). |
+| **Trusted network** | A network the user allowed discovery on. None by default; "trust every network" is an explicit setting. See [networks.md](networks.md). |
+| **Active network** | An interface discovery runs on: a connected trusted network, narrowed by the network menu. |
 
 ## Layers and crates
 

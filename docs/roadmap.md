@@ -21,8 +21,9 @@ of jobs/manifests/units; `queue_send` hashes files at enqueue time and handles f
 - `localdrop run` / `localdrop peers` show group members on the LAN.
 - Interface enumeration and classification (ignore virtual/VPN), per-interface mDNS and
   directed broadcast, discovery on/off, restart on network change.
-- Network fingerprints and remembered-network rules (Discover / Don't / Ask); SSID via
-  platform hooks later in M6. See [networks.md](networks.md).
+- Network fingerprints and trusted networks (none trusted by default; trust on join,
+  ask on new networks, optional "trust every network"), discovery-at-launch setting;
+  SSID via platform hooks later in M6. See [networks.md](networks.md).
 
 ## M2 — Authenticated connections
 

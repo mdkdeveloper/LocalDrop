@@ -222,6 +222,14 @@ def inset(*kids, pad=(0, 16, 0, 16), gap=12):
 
 
 # ---------------------------------------------------------------- phone screens
+def trust_row(net="Home", sub=None):
+    return row("Trust network", checkbox(True),
+               col("Text", T(f"Trust this network (Wi-Fi “{net}”)", 14, "Medium"),
+                   T(sub or "LocalDrop only searches on networks you trust.", 12,
+                     color=MUTE, wrap=True), gap=2),
+               align="min", gap=10)
+
+
 def p_join():
     return phone(
         "Phone / 01 Join group",
@@ -230,20 +238,21 @@ def p_join():
             T("Use the same group name and password on all your devices; the first one "
               "creates the group. Nobody else on the network can see them.", 15, color=MUTE,
               wrap=True),
-            gap=12, pad=[40, 24, 24, 24]),
+            gap=10, pad=[24, 24, 20, 24]),
         col("Form",
             field("Group name", "home"),
             field("Password", "••••••••••••", hint="At least 10 characters, or use a "
                   "generated passphrase.", trailing="Generate"),
             field("This device's name", "Pixel 8"),
-            gap=16, pad=[0, 24, 0, 24]),
+            trust_row(),
+            gap=14, pad=[0, 24, 0, 24]),
         col("Fingerprint",
             row("Box", col("Text", T("Group fingerprint", 13, "Medium", MUTE),
                            T("3fa2-91c0", 22, "Bold", letterSpacing=1)),
                 icon(28, 8, name="Copy"), pad=16, fills=[SURF], cornerRadius=12),
             T("Check that this code is the same on every device you add.", 12, color=MUTE,
               wrap=True),
-            gap=8, pad=[24, 24, 0, 24]),
+            gap=8, pad=[18, 24, 0, 24]),
         footer=col("Footer", link(button("Join group", full=True), "files-remote"), gap=0,
                    pad=[16, 24, 34, 24]),
     )
@@ -478,7 +487,7 @@ def p_settings():
         link(list_row("Group", "home · fingerprint 3fa2-91c0", lead=None, trailing="›",
                       pad_x=16), "group"),
         divider(16),
-        link(list_row("Networks", "Home Wi-Fi · discovering · 2 remembered", lead=None,
+        link(list_row("Networks", "Trusted: Home · discovering", lead=None,
                       trailing="›", pad_x=16), "networks"),
         divider(16),
         list_row("Visible to your group", None, lead=None, trailing=toggle(True), pad_x=16),
@@ -1109,8 +1118,8 @@ def d_join():
         step(1, "Same name and password everywhere",
              "The first device creates the group, the others join it the same way."),
         step(2, "Compare the fingerprint", "The 4+4 code must match on every device."),
-        step(3, "That's it", "Your devices find each other automatically. Other devices on "
-             "the network can't see them."),
+        step(3, "Trust your home network", "Your devices find each other only on networks "
+             "you trust. Other devices on the network can't see them."),
         gap=16, pad=32, sizingH="fixed", w=400, sizingV="fill", fills=[BG],
     )
     form = col(
@@ -1119,6 +1128,7 @@ def d_join():
         field("Password", "••••••••••••", hint="At least 10 characters, or use a generated "
               "passphrase.", trailing="Generate"),
         field("This device's name", "Dmytro's Laptop"),
+        trust_row(),
         row("Fingerprint", col("Text", T("Group fingerprint", 13, "Medium", MUTE),
                                T("3fa2-91c0", 22, "Bold", letterSpacing=1)),
             T("Copy", 13, "Medium", MUTE), pad=16, fills=[BG], cornerRadius=12),
@@ -1128,7 +1138,7 @@ def d_join():
         gap=16, pad=32, sizingH="fixed", w=440, sizingV="fill",
     )
     dialog = row("Dialog", info, form, gap=0, align="min", sizingH="hug", sizingV="fixed",
-                 h=600, fills=[SURF],
+                 h=660, fills=[SURF],
                  cornerRadius=20, clip=True, strokes=[LINE], strokeWeight=1,
                  effects=[{"type": "dropShadow", "color": "#00000014", "offset": [0, 12],
                            "radius": 32}])
@@ -1322,21 +1332,25 @@ def net_row(title, sub, state, lead=None, dim=False, to=None, pad_x=16):
     return link(r, to) if to else r
 
 
+def trust_btn(to=None):
+    b = button("Trust", primary=False, small=True)
+    return link(b, to) if to else b
+
+
 def d_net_menu():
     """Network menu opened from the discovery pill (two networks at once)."""
     pop = col(
         "Network menu",
-        row("Head", T("Discover on", 14, "Semi Bold"), spacer(),
+        row("Head", T("Search on", 14, "Semi Bold"), spacer(),
             T("Wi-Fi + Ethernet connected", 12, color=MUTE), pad=[14, 16, 6, 16]),
-        list_row("Auto", "All networks whose rule allows it", lead=radio(True), pad_x=16),
+        list_row("Trusted networks", "Now: Home", lead=radio(True), pad_x=16),
         divider(52),
         list_row("Only Home", "Wi-Fi · 192.168.1.23/24", lead=radio(False), pad_x=16),
-        divider(52),
-        list_row("Only Office LAN", "Ethernet · 10.0.5.17/22", lead=radio(False), pad_x=16),
         R(10, 1, LINE, name="Line", sizingH="fill"),
-        row("Now", T("NOW", 11, "Semi Bold", MUTE, letterSpacing=0.6), pad=[10, 16, 2, 16]),
-        net_row("Home", "Wi-Fi · rule: discover", chip("Discovering", True)),
-        net_row("Office LAN", "Ethernet · rule: never", chip("Off")),
+        row("Now", T("CONNECTED", 11, "Semi Bold", MUTE, letterSpacing=0.6),
+            pad=[10, 16, 2, 16]),
+        net_row("Home", "Wi-Fi · trusted", chip("Discovering", True)),
+        net_row("Office LAN", "Ethernet · not trusted", trust_btn("d-networks")),
         net_row("vEthernet (WSL)", "Virtual adapter", chip("Ignored"), dim=True),
         R(10, 1, LINE, name="Line", sizingH="fill"),
         link(row("Settings link", T("Network settings", 13, "Semi Bold"), spacer(),
@@ -1354,27 +1368,28 @@ def d_net_menu():
 
 
 def d_new_net():
-    """Unknown network with rule Ask: discovery waits for the user's answer."""
+    """A network that isn't trusted: discovery stays off; ask once whether to trust it."""
     toolbar = row("Toolbar", side_toggle(True), nav_btns(), crumbs("Dmytro's Laptop"),
-                  spacer(), disc_pill(False), search(), seg("Remote", "Split", active=0),
-                  gap=12)
+                  spacer(), disc_pill(True, net="no trusted network"), search(),
+                  seg("Remote", "Split", active=0), gap=12)
     ask = col(
-        "New network", icon(48, 14, BLOCK), T("New network", 13, "Semi Bold", MUTE),
-        T("Use LocalDrop on “Office-5G”?", 20, "Bold"),
-        T("Wi-Fi · 10.20.0.0/22 · gateway 10.20.0.1. Discovery stays off here until you "
-          "answer. Your devices can't see this PC and you can't see them.", 13, color=MUTE,
-          wrap=True, textAlignHorizontal="center"),
-        row("Answers", link(button("Never", primary=False), "d-disc-off"),
-            link(button("Just this time", primary=False), "d-remote"),
-            link(button("Always"), "d-remote"), gap=10, sizingH="hug"),
-        T("You can change it later in Settings › Networks.", 12, color=MUTE),
+        "New network", icon(48, 14, BLOCK), T("Network not trusted", 13, "Semi Bold", MUTE),
+        T("Trust “Office-5G”?", 20, "Bold"),
+        T("LocalDrop only searches on networks you trust. Here it stays silent: your devices "
+          "can't see this PC and you can't see them.", 13, color=MUTE, wrap=True,
+          textAlignHorizontal="center"),
+        T("Wi-Fi · 10.20.0.0/22 · gateway 10.20.0.1", 12, color=MUTE),
+        row("Answers", link(button("Never ask", primary=False), "d-disc-off"),
+            link(button("Not now", primary=False), "d-disc-off"),
+            link(button("Trust this network"), "d-remote"), gap=10, sizingH="hug"),
+        T("Change it later in Settings › Networks.", 12, color=MUTE),
         gap=12, pad=32, crossAlign="center", fills=[SURF], cornerRadius=16)
     note = row("Notification", icon(20, 6), T("A system notification asks the same when "
                "the window is closed.", 12, color=MUTE), pad=[10, 14, 10, 14],
                cornerRadius=10, strokes=[LINE], strokeWeight=1, sizingH="hug")
     return window("Desktop / 13 New network", "laptop", main_area(
         toolbar, fill_v("Top"),
-        row("Center", F("Box", ask, layout="vertical", sizingH="fixed", w=520,
+        row("Center", F("Box", ask, layout="vertical", sizingH="fixed", w=540,
                         sizingV="hug"), mainAlign="center"),
         row("Note row", note, mainAlign="center"),
         fill_v("Bottom"), gap=16,
@@ -1384,14 +1399,16 @@ def d_new_net():
 def d_networks():
     w = (110, 120)
     now = scard(
-        net_row("Home", "Wi-Fi · 192.168.1.23/24 · via 192.168.1.1", chip("Discovering", True)),
-        net_row("Office LAN", "Ethernet · 10.0.5.17/22", chip("Off by rule")),
+        net_row("Home", "Wi-Fi · 192.168.1.23/24 · trusted", chip("Discovering", True)),
+        net_row("Office LAN", "Ethernet · 10.0.5.17/22 · not trusted", trust_btn()),
         net_row("vEthernet (WSL)", "Virtual · 172.29.80.1/20", row("Inc", T("Include", 12,
                 "Medium", MUTE), small_toggle(False), gap=6, sizingH="hug"), dim=True),
     )
     behaviour = scard(
-        srow("Discover on", "Auto: every network whose rule allows it", select_box("Auto")),
-        srow("On a new network", "Ask · Discover · Don't discover", select_box("Ask")),
+        srow("Discovery at launch", "Turn discovery on when LocalDrop opens", toggle(True)),
+        srow("On a new network", "Ask to trust · Stay silent", select_box("Ask to trust")),
+        srow("Trust every network", "Not recommended: announces this PC on any Wi-Fi",
+             toggle(False)),
         srow("Show Wi-Fi names", "Windows only gives them with Location turned on",
              button("Turn on…", primary=False, small=True)),
     )
@@ -1401,25 +1418,26 @@ def d_networks():
                     sub=f"{kind} · {seen}", trailing="⋮", box=False)
 
     tbl = card(
-        frow("Network", ("Recognised by", "Rule"), w, header=True, box=False),
+        frow("Network", ("Recognised by", "Trust"), w, header=True, box=False),
         divider(0),
-        known("Home", "Wi-Fi", "Router address", "Discover", "now"),
+        known("Home", "Wi-Fi", "Router address", "Trusted", "now"),
         divider(16),
-        known("Office LAN", "Ethernet", "Router address", "Never", "now"),
+        known("Office LAN", "Ethernet", "Router address", "Not trusted", "now"),
         divider(16),
-        known("Office-5G", "Wi-Fi", "Subnet only", "Ask", "yesterday"),
+        known("Office-5G", "Wi-Fi", "Subnet only", "Never ask", "yesterday"),
         divider(16),
-        known("Parents' Wi-Fi", "Wi-Fi", "Router address", "Discover", "3 weeks ago"),
+        known("Parents' Wi-Fi", "Wi-Fi", "Router address", "Trusted", "3 weeks ago"),
     )
     return settings_window(
         "Desktop / 14 Settings — networks", 4,
         row("Columns",
-            col("Left", slabel("Connected now"), now, slabel("Behaviour"), behaviour,
+            col("Left", slabel("Connected now"), now, slabel("Discovery"), behaviour,
                 gap=10),
             col("Right", slabel("Remembered networks", "⋮ Rename · Forget"), tbl,
-                T("Networks are recognised on this PC only, by the router's hardware address "
-                  "(or the Wi-Fi name if allowed). Nothing about them is sent to other "
-                  "devices.", 12, color=MUTE, wrap=True), gap=10),
+                T("No network is trusted until you say so. Networks are recognised on this "
+                  "PC only, by the router's hardware address (or the Wi-Fi name if "
+                  "allowed); nothing about them is sent to other devices.", 12, color=MUTE,
+                  wrap=True), gap=10),
             gap=24, align="min"),
     )
 
@@ -1427,13 +1445,13 @@ def d_networks():
 def p_new_net():
     body = sheet(
         icon(44, 12, BLOCK),
-        T("New network", 13, "Semi Bold", MUTE),
-        T("Use LocalDrop on “Office-5G”?", 20, "Bold"),
-        T("Wi-Fi · 10.20.0.x. Discovery stays off here until you answer.", 14, color=MUTE,
-          wrap=True, textAlignHorizontal="center"),
-        col("Answers", link(button("Always", full=True), "files-root"),
-            link(button("Just this time", primary=False, full=True), "files-root"),
-            link(button("Never", primary=False, full=True), "disc-off"), gap=8),
+        T("Network not trusted", 13, "Semi Bold", MUTE),
+        T("Trust “Office-5G”?", 20, "Bold"),
+        T("LocalDrop only searches on networks you trust. Wi-Fi · 10.20.0.x", 14,
+          color=MUTE, wrap=True, textAlignHorizontal="center"),
+        col("Answers", link(button("Trust this network", full=True), "files-root"),
+            link(button("Not now", primary=False, full=True), "disc-off"),
+            link(button("Never ask", primary=False, full=True), "disc-off"), gap=8),
         T("Change it later in Settings › Networks.", 12, color=MUTE),
     )
     dim = F("Scrim", w=PHONE[0], h=10, sizingH="fill", sizingV="fill", fills=["#18181B66"])
@@ -1442,26 +1460,31 @@ def p_new_net():
 
 
 def p_networks():
-    now = card(
-        net_row("Home", "Wi-Fi · 192.168.1.42 · discovering", chip("On", True)),
-    )
+    now = card(net_row("Home", "Wi-Fi · 192.168.1.42 · trusted", chip("On", True)))
     remembered = card(
-        net_row("Home", "Wi-Fi · recognised by name", select_box("Discover")),
+        net_row("Home", "Wi-Fi · recognised by name", select_box("Trusted")),
         divider(60),
-        net_row("Office-5G", "Wi-Fi · recognised by name", select_box("Never")),
+        net_row("Office-5G", "Wi-Fi · recognised by name", select_box("Never ask")),
         divider(60),
-        net_row("Parents' Wi-Fi", "Wi-Fi · subnet only", select_box("Ask")),
+        net_row("Parents' Wi-Fi", "Wi-Fi · subnet only", select_box("Not trusted")),
+    )
+    rows = card(
+        list_row("Discovery at launch", None, lead=None, trailing=toggle(True), pad_x=16),
+        divider(16),
+        list_row("On a new network", None, lead=None, trailing=select_box("Ask to trust"),
+                 pad_x=16),
+        divider(16),
+        list_row("Trust every network", "Not recommended", lead=None, trailing=toggle(False),
+                 pad_x=16),
+        divider(16),
+        list_row("Use Wi-Fi names", "Needs location access", lead=None,
+                 trailing=toggle(True), pad_x=16),
     )
     return phone(
         "Phone / 18 Networks",
-        app_bar("Networks", back=True),
+        app_bar("Networks", "Discovery runs only on trusted networks", back=True),
         section("Connected now"), inset(now),
-        section("Behaviour"),
-        inset(card(list_row("On a new network", None, lead=None, trailing=select_box("Ask"),
-                            pad_x=16),
-                   divider(16),
-                   list_row("Use Wi-Fi names", "Needs location access", lead=None,
-                            trailing=toggle(True), pad_x=16))),
+        section("Discovery"), inset(rows),
         section("Remembered", "Tap to rename or forget"), inset(remembered),
         nav="Settings",
     )

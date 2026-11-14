@@ -4,8 +4,8 @@ Discovery finds *claimed* members of our group on the LAN. It never grants trust
 connection is authenticated by the handshake ([security.md](security.md)).
 
 Discovery can be switched off from the main screen, and it runs only on the *active
-networks*: real Wi-Fi/Ethernet interfaces (virtual and VPN adapters are ignored by
-default) whose remembered network rule allows it. See [networks.md](networks.md).
+networks*: Wi-Fi/Ethernet networks the user has marked as **trusted** (none by default;
+virtual and VPN adapters only if added by hand). See [networks.md](networks.md).
 
 ## Announcement format (v1)
 
