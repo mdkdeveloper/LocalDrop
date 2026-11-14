@@ -34,4 +34,26 @@ plus flows for event-driven states; open with Present or Shift+Space in FigCraft
 is triggered by an event, e.g. joining a new network) gets its own entry in `FLOWS`. `wire` reports links that point to
 screens that don't exist yet.
 
+## Styled screens
+
+`styled.py` puts styled versions of wireframe screens on the page **Styled v1**. Each
+screen is the wireframe layout from `wf.py`, restyled: the greys become colour variables,
+the grey squares become icons, and every screen is built twice, once in mode Light and
+once in Dark. The wireframes themselves are not changed.
+
+```bash
+python styled.py core                  # tokens + design system + core screens
+python styled.py d-transfers send      # restyle more wireframe screens by key
+python styled.py tokens                # update variables, write ../tokens.json
+python styled.py wire                  # re-link the styled prototype
+```
+
+- **Colours:** set in `TOKENS`, as the variable collection “LocalDrop” with modes Light and
+  Dark. The same values are exported to `design/tokens.json` for the Flutter theme.
+- **Icons:** `ICONS` holds stroke paths on a 24 px grid. `pick()` chooses the icon for each
+  placeholder from the names and texts around it, and the build prints any placeholder it
+  can't match.
+- **Prototype:** styled screens link only to styled screens of the same mode. Flows:
+  *Styled · Desktop*, *Styled · Phone*, and their dark variants.
+
 Renders go to `out/` (git-ignored). The design file itself is `../localdrop-wireframes.figcraft`.
