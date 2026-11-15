@@ -4,9 +4,8 @@ Transport: one QUIC connection per peer (ALPN `localdrop/1`), established after
 discovery and authenticated by the membership handshake ([security.md](security.md)).
 The connection is symmetric: both sides can send jobs and make requests.
 
-> The message types in `localdrop-protocol` were written before jobs, bundles and
-> shares were designed and will be reworked to match this document in M3 (see
-> [roadmap.md](roadmap.md)).
+Implemented as types in `localdrop-protocol` (`messages.rs`, limits and helpers in
+`limits.rs`); nothing is sent over a network yet.
 
 ## Streams
 
@@ -43,11 +42,11 @@ listings) are split across several frames.
 | Message | From | Meaning |
 |---|---|---|
 | `JobOffer{job_id, name, destination, total_files, total_bytes, deferred}` | sender | Proposes a job. `destination = Inbox \| Share{share_id, path}`. `deferred` marks jobs from the offline queue (go to `deferred_inbox_dir` when `Inbox`). |
-| `ManifestChunk{job_id, entries[], last}` | sender | Manifest: `{index, path, kind: File\|Dir, size, mtime}`. Paths relative, `/`-separated. |
+| `ManifestChunk{job_id, entries[], last}` | sender | Manifest: `{index, path, kind: File\|Dir, size, mtime_unix_ms, executable}`. Paths relative, `/`-separated; indices dense from 0. Chunks stay under ~512 KiB encoded (`manifest_chunks`). |
 | `JobPending{job_id, reason: AwaitingAccept\|AwaitingConflictDecision\|LowSpace{free, needed}}` | receiver | Receiver waits for a human (accept requests time out after 10 min, see [security.md](security.md#accept-policy)) or for free space ([transfers.md](transfers.md#running-out-of-space)). Sender pauses the job and serves other jobs. A later `JobAccept{resume}` continues it. |
-| `ConflictReport{job_id, conflicts[], allowed_modes[]}` | receiver | Files that already exist (and differ), and the modes the owner's permissions allow. Shown in the sender's dialog. |
+| `ConflictReport{job_id, conflicts[], allowed_modes[], last}` | receiver | Files that already exist (and differ) as `{index, existing_size, existing_mtime_unix_ms}`, and the modes the owner's permissions allow (`KeepExisting`, `KeepBoth` for the inbox, `ReplaceWithBackup`, `ReplaceConflicting`, `Mirror`). Split like the manifest when long. Shown in the sender's dialog. |
 | `ConflictDecision{job_id, mode}` | either | First valid decision wins; the receiver confirms with `JobAccept`. Either side may also answer `JobCancel`. |
-| `JobAccept{job_id, skip[], resume}` | receiver | Start/continue sending. `skip`: manifest indices not to send (identical or `KeepExisting`). `resume`: `{unit, file_index, segment}` to continue from. |
+| `JobAccept{job_id, skip[], resume}` | receiver | Start/continue sending. `skip`: manifest indices not to send (identical or `KeepExisting`). `resume`: `{unit, file_index, segment}` to continue from, absent = from the start. |
 | `SegmentFailed{job_id, file_index, segment}` | receiver | Segment hash mismatch; sender re-sends that segment after the current unit (as a one-segment large unit). |
 | `JobReject{job_id, reason}` | receiver | `Declined`, `NoAnswer` (accept request timed out), `NoSpace`, `Denied` (no permission), `Other`. |
 | `FileSkipped{job_id, file_index, reason}` | sender | The sender could not send a file of the current unit: `SourceChanged`, `SourceLocked`, `SourceMissing`, `ReadError`. The receiver drops its temp file; the rest of the unit continues. |
@@ -112,7 +111,9 @@ the owner, and only inside shares the requester may browse; an empty `share_ids`
 all of them. The owner caps work per request (time and hits per page) so a search can't
 stall it.
 
-Any request can be answered with `Denied` or `NotFound`. Uploads are not a request:
+`kind` is `File`, `Dir` or `Symlink` (listed, never followed); times are Unix
+milliseconds; cursors are opaque bytes issued by the owner. Any request can be answered
+with `Denied` or `NotFound`. Uploads are not a request:
 they are a normal job with `destination = Share{..}`.
 
 ## File names and paths

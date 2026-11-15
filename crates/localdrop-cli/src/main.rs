@@ -37,7 +37,7 @@ enum Command {
     Send {
         /// Target device id.
         device: DeviceId,
-        /// Files to send.
+        /// Files and folders to send.
         #[arg(required = true)]
         files: Vec<PathBuf>,
     },
@@ -45,13 +45,13 @@ enum Command {
     Queue {
         /// Target device id.
         device: DeviceId,
-        /// Files to queue.
+        /// Files and folders to queue.
         #[arg(required = true)]
         files: Vec<PathBuf>,
     },
-    /// Show the outbox.
-    Outbox,
-    /// Run in the foreground: announce, receive, and deliver queued transfers.
+    /// Show the job queues and history.
+    Jobs,
+    /// Run in the foreground: announce, receive, and deliver queued jobs.
     Run,
 }
 
@@ -92,7 +92,7 @@ fn run(cli: Cli) -> localdrop_core::Result<()> {
         Command::Peers
         | Command::Send { .. }
         | Command::Queue { .. }
-        | Command::Outbox
+        | Command::Jobs
         | Command::Run => Err(localdrop_core::Error::NotImplemented(
             "this command needs persistent config and networking (see docs/roadmap.md)",
         )),

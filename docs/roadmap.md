@@ -9,7 +9,7 @@
 - In-memory store (known devices with key pinning, outbox) and `Node::queue_send`.
 - CLI skeleton, design documentation (incl. shares, jobs/units, conflicts, backups).
 
-Known gaps against the current design, fixed in P0 below:
+Known gaps against the current design, fixed in P0 below (done):
 `ControlMessage` still has the single-offer shape (`Offer` with per-file hashes) instead
 of jobs/manifests/units; `queue_send` hashes files at enqueue time and handles files only
 (no folders, no destination); store types say "transfer" instead of "job".

@@ -11,12 +11,12 @@ rust-version = "1.85"
 
 [workspace.dependencies]
 # Internal crates
-localdrop-core = { path = "crates/localdrop-core" }
-localdrop-discovery = { path = "crates/localdrop-discovery" }
-localdrop-protocol = { path = "crates/localdrop-protocol" }
-localdrop-transport = { path = "crates/localdrop-transport" }
-localdrop-store = { path = "crates/localdrop-store" }
-localdrop-node = { path = "crates/localdrop-node" }
+localdrop-core = { path = "crates/localdrop-core", version = "0.1.0" }
+localdrop-discovery = { path = "crates/localdrop-discovery", version = "0.1.0" }
+localdrop-protocol = { path = "crates/localdrop-protocol", version = "0.1.0" }
+localdrop-transport = { path = "crates/localdrop-transport", version = "0.1.0" }
+localdrop-store = { path = "crates/localdrop-store", version = "0.1.0" }
+localdrop-node = { path = "crates/localdrop-node", version = "0.1.0" }
 
 # Crypto
 argon2 = "0.5"
@@ -33,7 +33,7 @@ serde = { version = "1", features = ["derive"] }
 postcard = { version = "1", features = ["use-std"] }
 
 # Runtime / app
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
 thiserror = "2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

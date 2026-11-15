@@ -41,9 +41,17 @@ pub enum Error {
     #[error("unknown device {0}")]
     UnknownDevice(DeviceId),
 
+    /// An identifier string is not 32 hex characters.
+    #[error("invalid identifier")]
+    InvalidId,
+
     /// The requested item does not exist.
     #[error("not found")]
     NotFound,
+
+    /// The action is not possible in the item's current state.
+    #[error("not possible in the current state")]
+    InvalidState,
 
     /// The feature is part of the planned design but not implemented yet.
     #[error("not implemented yet: {0}")]

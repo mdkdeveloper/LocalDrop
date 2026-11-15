@@ -527,7 +527,6 @@ dependencies = [
 name = "localdrop-node"
 version = "0.1.0"
 dependencies = [
- "blake3",
  "localdrop-core",
  "localdrop-discovery",
  "localdrop-protocol",
@@ -541,6 +540,7 @@ dependencies = [
 name = "localdrop-protocol"
 version = "0.1.0"
 dependencies = [
+ "blake3",
  "localdrop-core",
  "postcard",
  "serde",
@@ -551,6 +551,7 @@ name = "localdrop-store"
 version = "0.1.0"
 dependencies = [
  "localdrop-core",
+ "localdrop-protocol",
  "serde",
 ]
 

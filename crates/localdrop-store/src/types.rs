@@ -2,7 +2,8 @@
 
 use std::path::PathBuf;
 
-use localdrop_core::{AcceptPolicy, DeviceId, PublicKey, TransferId};
+use localdrop_core::{AcceptPolicy, DeviceId, JobId, PublicKey};
+use localdrop_protocol::{Destination, ManifestEntry};
 use serde::{Deserialize, Serialize};
 
 /// A group member we have authenticated before.
@@ -20,81 +21,121 @@ pub struct KnownDevice {
     pub accept_override: Option<AcceptPolicy>,
 }
 
-/// Where the sender reads a queued file from.
+/// Which pair queue a job is in, seen from this device.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Direction {
+    /// This device sends to the peer.
+    Outgoing,
+    /// The peer sends to this device.
+    Incoming,
+}
+
+/// How the sender keeps a job's files until they are sent.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum FileSource {
-    /// Desktop: reference to the original file. If size/mtime/hash differ at send
-    /// time, the transfer is paused and the user is warned.
-    Reference {
-        /// Absolute path.
-        path: PathBuf,
-        /// Size at enqueue time.
-        size: u64,
-        /// Modification time at enqueue time (Unix seconds).
-        mtime_unix: u64,
-    },
-    /// Mobile: copy inside the app's cache directory, deleted after delivery.
+pub enum SourceStorage {
+    /// Desktop: the original files are read at send time. Size and mtime in the
+    /// manifest are compared then; a difference marks the job `SourceChanged`.
+    Reference,
+    /// Mobile: copies in this cache folder, deleted when the job ends.
     Cached {
-        /// Absolute path of the cached copy.
-        path: PathBuf,
-        /// Size of the copy.
-        size: u64,
+        /// Folder holding the job's copies.
+        dir: PathBuf,
     },
 }
 
-/// One file in a queued transfer.
+/// One manifest entry plus where the sender reads it from.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct QueuedFile {
-    /// Name presented to the receiver.
-    pub name: String,
-    /// Source of the bytes.
-    pub source: FileSource,
-    /// BLAKE3 hash computed at enqueue time.
-    pub blake3: [u8; 32],
+pub struct JobEntry {
+    /// What the receiver sees.
+    pub manifest: ManifestEntry,
+    /// Sender: absolute path of the original or of the cached copy.
+    /// Receiver: absolute path of the target once known.
+    pub local_path: Option<PathBuf>,
 }
 
-/// State of a queued transfer.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum OutboxState {
-    /// Waiting for the target to come online.
+/// State of a job (see `docs/deferred-send.md#state-machine` and `docs/transfers.md`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum JobState {
+    /// Waiting for the peer to come online (deferred) or for its turn in the queue.
     Waiting,
-    /// Offer delivered; receiver asked its user (manual accept policy).
+    /// The receiver's user has to accept.
     AwaitingAccept,
-    /// Bytes are being transferred.
+    /// A conflict dialog is open on both sides.
+    AwaitingConflictDecision,
+    /// Paused by the receiver because its destination is almost full.
+    LowSpace,
+    /// Units are being sent.
     InProgress,
-    /// Source file changed or disappeared since enqueue; needs user attention.
+    /// Paused by a user; keeps its place in the queue.
+    Paused,
+    /// Sender: source files changed or disappeared before the job started.
     SourceChanged,
+    /// The accept request timed out (live jobs; deferred ones return to `Waiting`).
+    NoAnswer,
     /// All files delivered and verified.
     Completed,
-    /// Receiver rejected the transfer.
+    /// Finished, but some files failed (they can be retried).
+    CompletedWithErrors,
+    /// The receiver rejected the job.
     Rejected,
-    /// Cancelled by the sender.
+    /// The job failed as a whole.
+    Failed,
+    /// Cancelled on either side.
     Cancelled,
+    /// The optional expiry passed before delivery.
+    Expired,
 }
 
-impl OutboxState {
-    /// Whether the transfer still needs delivery attempts.
-    pub fn is_active(&self) -> bool {
+impl JobState {
+    /// Whether the job still occupies its pair queue (offered or resumed on connect).
+    pub fn is_active(self) -> bool {
         matches!(
             self,
-            Self::Waiting | Self::AwaitingAccept | Self::InProgress
+            Self::Waiting
+                | Self::AwaitingAccept
+                | Self::AwaitingConflictDecision
+                | Self::LowSpace
+                | Self::InProgress
+                | Self::Paused
+                | Self::SourceChanged
         )
+    }
+
+    /// Whether the job has ended and only shows in history.
+    pub fn is_finished(self) -> bool {
+        !self.is_active() && self != Self::NoAnswer
     }
 }
 
-/// A transfer waiting in the outbox.
+/// A job in a pair queue, in either direction.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct QueuedTransfer {
-    /// Transfer id (reused for every delivery attempt).
-    pub id: TransferId,
-    /// Target device; must be in [`KnownDevices`](crate::KnownDevices).
-    pub target: DeviceId,
-    /// Files.
-    pub files: Vec<QueuedFile>,
-    /// Unix time (seconds) of enqueue.
+pub struct Job {
+    /// Job id (stable for the job's whole life).
+    pub id: JobId,
+    /// The other device.
+    pub peer: DeviceId,
+    /// Which pair queue.
+    pub direction: Direction,
+    /// Name shown in the queue, e.g. "Holiday photos".
+    pub name: String,
+    /// Where the files go on the receiver.
+    pub destination: Destination,
+    /// Created while the peer was offline (goes to the deferred inbox).
+    pub deferred: bool,
+    /// Manifest with local paths.
+    pub entries: Vec<JobEntry>,
+    /// Sender only: how the files are kept until sent.
+    pub storage: SourceStorage,
+    /// Sum of all file sizes.
+    pub total_bytes: u64,
+    /// Bytes written by the receiver so far.
+    pub bytes_done: u64,
+    /// Queue position; lower goes first. Ties are broken by `created_unix`.
+    pub position: u64,
+    /// Unix time (seconds) of creation.
     pub created_unix: u64,
-    /// Optional expiry (Unix seconds) after which the transfer is dropped.
+    /// Optional expiry (Unix seconds) after which the job is dropped.
     pub expires_unix: Option<u64>,
     /// Current state.
-    pub state: OutboxState,
+    pub state: JobState,
 }

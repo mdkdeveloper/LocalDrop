@@ -1,18 +1,19 @@
-//! Persistent state (see `docs/deferred-send.md`).
+//! Persistent state (see `docs/transfers.md` and `docs/deferred-send.md`).
 //!
 //! - [`KnownDevices`]: group members we have authenticated at least once, with their
-//!   pinned public keys. Deferred sends can only target these.
-//! - [`Outbox`]: transfers queued for devices that are currently offline.
+//!   pinned public keys. Deferred jobs can only target these.
+//! - [`Jobs`]: the pair queues in both directions, including deferred jobs waiting for
+//!   an offline device, and finished jobs for history.
 //!
 //! [`MemoryStore`] is an in-memory implementation used by tests and the CLI skeleton.
-//! A persistent `redb`-backed store is planned.
+//! A persistent `redb`-backed store follows in M3.
 
 mod memory;
 pub mod types;
 
-use localdrop_core::{DeviceId, Result, TransferId};
+use localdrop_core::{DeviceId, JobId, Result};
 pub use memory::MemoryStore;
-pub use types::{FileSource, KnownDevice, OutboxState, QueuedFile, QueuedTransfer};
+pub use types::{Direction, Job, JobEntry, JobState, KnownDevice, SourceStorage};
 
 /// Registry of known group members.
 pub trait KnownDevices: Send + Sync {
@@ -29,20 +30,26 @@ pub trait KnownDevices: Send + Sync {
     fn remove_device(&self, id: &DeviceId) -> Result<()>;
 }
 
-/// Queue of deferred transfers on the sender side.
-pub trait Outbox: Send + Sync {
-    /// Adds a transfer to the queue.
-    fn enqueue(&self, transfer: QueuedTransfer) -> Result<()>;
-    /// Unfinished transfers for a given target, oldest first.
-    fn pending_for(&self, target: &DeviceId) -> Result<Vec<QueuedTransfer>>;
-    /// All transfers in the outbox.
-    fn transfers(&self) -> Result<Vec<QueuedTransfer>>;
-    /// Updates a transfer's state.
-    fn set_state(&self, id: &TransferId, state: OutboxState) -> Result<()>;
-    /// Removes a transfer.
-    fn remove_transfer(&self, id: &TransferId) -> Result<()>;
+/// Jobs in all pair queues.
+pub trait Jobs: Send + Sync {
+    /// Adds a job at the end of its pair queue (its `position` is assigned here).
+    fn insert_job(&self, job: Job) -> Result<()>;
+    /// Looks up a job.
+    fn job(&self, id: &JobId) -> Result<Option<Job>>;
+    /// All jobs, active and finished.
+    fn jobs(&self) -> Result<Vec<Job>>;
+    /// Active jobs of one pair queue, in queue order.
+    fn queue(&self, peer: &DeviceId, direction: Direction) -> Result<Vec<Job>>;
+    /// Updates a job's state.
+    fn set_state(&self, id: &JobId, state: JobState) -> Result<()>;
+    /// Updates a job's progress.
+    fn set_progress(&self, id: &JobId, bytes_done: u64) -> Result<()>;
+    /// Moves a job to the front of its pair queue.
+    fn move_to_top(&self, id: &JobId) -> Result<()>;
+    /// Removes a job.
+    fn remove_job(&self, id: &JobId) -> Result<()>;
 }
 
 /// Combined store used by the node.
-pub trait Store: KnownDevices + Outbox {}
-impl<T: KnownDevices + Outbox> Store for T {}
+pub trait Store: KnownDevices + Jobs {}
+impl<T: KnownDevices + Jobs> Store for T {}

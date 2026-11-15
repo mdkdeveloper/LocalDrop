@@ -3,7 +3,7 @@
 //! - [`identity`]: persistent per-install device identity (Ed25519) and [`DeviceId`].
 //! - [`group`]: the shared group password and the keys derived from it.
 //! - [`policy`]: incoming-transfer accept policy.
-//! - [`ids`]: misc identifiers such as [`TransferId`].
+//! - [`ids`]: identifiers such as [`JobId`] and [`ShareId`].
 //!
 //! See `docs/architecture.md` and `docs/security.md` for the design.
 
@@ -16,5 +16,5 @@ pub mod policy;
 pub use error::{Error, Result};
 pub use group::{GroupConfig, GroupKey, KdfParams};
 pub use identity::{DeviceId, DeviceIdentity, PublicKey};
-pub use ids::TransferId;
+pub use ids::{JobId, ShareId};
 pub use policy::{AcceptPolicy, AcceptSettings};

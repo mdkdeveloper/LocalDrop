@@ -34,6 +34,7 @@ Linux and macOS — with no cloud, no account, and no strangers.
 | [Receiving](docs/receiving.md) | Temp files, verify-then-rename, crash recovery |
 | [Protocol](docs/protocol.md) | Control messages, unit streams, remote requests |
 | [Deferred send](docs/deferred-send.md) | Outbox model and delivery rules |
+| [Node API](docs/node-api.md) | Commands and events front-ends use; fake node |
 | [Platforms](docs/platforms.md) | Per-OS permissions, background limits, Flutter |
 | [Roadmap](docs/roadmap.md) | Milestones |
 | [Development plan](docs/development-plan.md) | Build order, tracks, screens per milestone, exit criteria |

@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use localdrop_core::AcceptSettings;
 
-/// How queued (deferred) files are kept until delivery.
+/// How files of jobs for offline devices are kept until delivery.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OutboxStorage {
     /// Keep a reference to the original path (desktop default).
@@ -24,18 +24,22 @@ impl Default for OutboxStorage {
     }
 }
 
-/// Node configuration.
+/// Node configuration (the subset of `AppSettings` the node needs today).
 #[derive(Debug, Clone)]
 pub struct NodeConfig {
     /// Human-readable device name shown to peers.
     pub device_name: String,
-    /// Directory where received files are written.
-    pub download_dir: PathBuf,
-    /// QUIC listening port (0 = any).
+    /// Where pushed files land (`inbox_dir`).
+    pub inbox_dir: PathBuf,
+    /// Where files from a sender's offline queue land; `None` = `inbox_dir`.
+    pub deferred_inbox_dir: Option<PathBuf>,
+    /// A job with several top-level items lands in its own subfolder of the inbox.
+    pub job_subfolder: bool,
+    /// QUIC listening port (0 = random, the default).
     pub listen_port: u16,
     /// Incoming accept policy.
     pub accept: AcceptSettings,
-    /// Outbox storage mode.
+    /// Storage mode for jobs to offline devices.
     pub outbox_storage: OutboxStorage,
 }
 
@@ -44,7 +48,9 @@ impl NodeConfig {
     pub fn new(device_name: impl Into<String>) -> Self {
         Self {
             device_name: device_name.into(),
-            download_dir: std::env::temp_dir().join("localdrop-downloads"),
+            inbox_dir: std::env::temp_dir().join("localdrop-inbox"),
+            deferred_inbox_dir: None,
+            job_subfolder: true,
             listen_port: 0,
             accept: AcceptSettings::default(),
             outbox_storage: OutboxStorage::default(),

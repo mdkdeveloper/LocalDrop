@@ -13,9 +13,15 @@ localdrop-discovery.workspace = true
 localdrop-protocol.workspace = true
 localdrop-transport.workspace = true
 localdrop-store.workspace = true
-blake3.workspace = true
 tokio.workspace = true
 tracing.workspace = true
+
+[features]
+# Scripted events for UI work without a network (see docs/node-api.md).
+fake = []
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt", "macros"] }
 
 [lints]
 workspace = true
