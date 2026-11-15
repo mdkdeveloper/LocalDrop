@@ -36,6 +36,7 @@ Linux and macOS — with no cloud, no account, and no strangers.
 | [Deferred send](docs/deferred-send.md) | Outbox model and delivery rules |
 | [Platforms](docs/platforms.md) | Per-OS permissions, background limits, Flutter |
 | [Roadmap](docs/roadmap.md) | Milestones |
+| [Development plan](docs/development-plan.md) | Build order, tracks, screens per milestone, exit criteria |
 
 ## Repository layout
 
