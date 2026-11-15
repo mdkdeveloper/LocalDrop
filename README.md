@@ -51,7 +51,7 @@ crates/
   localdrop-node        high-level API used by all front-ends
   localdrop-cli         `localdrop` command-line tool
   (planned) localdrop-engine, localdrop-fs   transfer engine; shares, permissions, backups
-app/                    Flutter app (planned)
+app/                    Flutter app (runs on a fake node until the Rust bridge, M2)
 docs/                   design documentation
 ```
 

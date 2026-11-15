@@ -17,7 +17,7 @@ of jobs/manifests/units; `queue_send` hashes files at enqueue time and handles f
 Build order, parallel tracks, screens per milestone and exit criteria:
 [development-plan.md](development-plan.md).
 
-## P0 — Groundwork
+## P0 — Groundwork ✅
 
 - CI on Windows, Linux and macOS (`fmt`, `clippy -D warnings`, tests, `cargo deny`).
 - Protocol v1 shape: job, manifest, unit and request messages from
@@ -26,7 +26,9 @@ Build order, parallel tracks, screens per milestone and exit criteria:
 - `queue_send` without hashing at enqueue, with folders and a destination.
 - Node API draft (commands + `NodeEvent`), documented for the FFI.
 - Fake node emitting scripted events, so the app can be built in parallel.
-- App shell starts: Flutter project, theme from `design/tokens.json`, navigation.
+- App shell: Flutter project in `app/`, theme generated from `design/tokens.json`,
+  phone and desktop navigation, a Dart fake node, first screens (see
+  [app/README.md](../app/README.md)).
 
 ## M1 — Discovery
 

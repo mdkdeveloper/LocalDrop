@@ -30,6 +30,25 @@ jobs:
       - name: Test
         run: cargo test --workspace --all-features
 
+  app:
+    name: Flutter app
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Tokens are up to date
+        run: dart run tool/gen_tokens.dart && git diff --exit-code lib/theme/tokens.g.dart
+      - run: dart format --output=none --set-exit-if-changed lib test tool
+      - run: flutter analyze
+      - run: flutter test
+
   deny:
     name: cargo-deny
     runs-on: ubuntu-latest

@@ -137,5 +137,9 @@ Feature `fake` of `localdrop-node` (module `localdrop_node::fake`):
   untrusted network.
 - `fake::ids` — fixed device and job ids used by the demo, for UI tests.
 
-The bridge exposes a `fake_events(speed)` stream next to the real node so the app can
-switch between them in a debug menu.
+Until the bridge exists (M2), the app has a Dart port of the same story
+(`app/lib/node/fake_node.dart`, same ids) behind the `NodeClient` interface it will
+share with the bridge. It also reacts to commands (accept, conflict answers, job
+actions, the discovery switch) so the screens can be clicked through. From M2 the bridge
+also exposes a `fake_events(speed)` stream from the Rust fake, so the app can switch
+between fake and real nodes in a debug menu.
