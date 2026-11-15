@@ -66,8 +66,12 @@ handshake decides membership.
 
 ## Peer lifecycle
 
+Implemented by `DiscoveryService` in `localdrop-discovery`:
+
 - `Found` — first valid announcement, or addresses changed.
-- `Lost` — no announcement for 3 × the announce interval, mDNS goodbye, or network change.
+- `Lost` — no source left: the broadcast entry expires after 3 × the announce interval
+  (15 s) and the mDNS entry ends with a goodbye; or a network change removed the
+  interfaces the peer was reachable through.
 - The node merges results from all backends by `DeviceId`.
 - When a `Found` peer has pending jobs in its pair queue, or the user wants to send, the node
   connects. Otherwise it may connect lazily to verify presence (shows "online").

@@ -15,6 +15,10 @@ localdrop-transport.workspace = true
 localdrop-store.workspace = true
 tokio.workspace = true
 tracing.workspace = true
+serde.workspace = true
+rand.workspace = true
+serde_json.workspace = true
+postcard.workspace = true
 
 [features]
 # Scripted events for UI work without a network (see docs/node-api.md).

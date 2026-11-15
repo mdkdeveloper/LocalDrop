@@ -162,3 +162,13 @@ NetworkSettings {
 | Android | `ConnectivityManager.registerNetworkCallback` |
 
 Changes are debounced (~2 s) because Wi-Fi roaming and DHCP renewals produce bursts.
+
+**Current implementation:** the node polls the interface list every 2 s (`netdev`) and
+acts on a change once it has stayed the same for one more poll. This works the same on
+every platform; the OS notifications above replace polling later. On a change the
+discovery switch returns to *Discovery at launch*, the announcement rotates, and peers
+only reachable through a removed interface are reported lost.
+
+**Network keys today:** gateway MAC address when the OS shows it, otherwise subnet +
+gateway IP (marked weak). The Windows network profile id and Wi-Fi names (SSID, through
+platform hooks) are not used yet.

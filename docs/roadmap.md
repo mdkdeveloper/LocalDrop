@@ -30,16 +30,22 @@ Build order, parallel tracks, screens per milestone and exit criteria:
   phone and desktop navigation, a Dart fake node, first screens (see
   [app/README.md](../app/README.md)).
 
-## M1 — Discovery
+## M1 — Discovery (core ✅, app screens open)
 
-- mDNS backend (`mdns-sd`), broadcast backend, merge + `Lost` timeouts.
-- Persistent config + identity (`localdrop init` saves state).
-- `localdrop run` / `localdrop peers` show group members on the LAN.
-- Interface enumeration and classification (ignore virtual/VPN), per-interface mDNS and
-  directed broadcast, discovery on/off, restart on network change.
-- Network fingerprints and trusted networks (none trusted by default; trust on join,
+- ✅ mDNS backend (`mdns-sd`), broadcast backend, merge + `Lost` timeouts.
+- ✅ Persistent config + identity (`localdrop init` saves state).
+- ✅ `localdrop run` / `localdrop peers` show group members on the LAN; also
+  `localdrop networks` and `localdrop trust`.
+- ✅ Interface enumeration and classification (ignore virtual/VPN), per-interface mDNS and
+  directed broadcast, discovery on/off, restart on network change (polling every 2 s;
+  OS change notifications later).
+- ✅ Network fingerprints and trusted networks (none trusted by default; trust on join,
   ask on new networks, optional "trust every network"), discovery-at-launch setting;
   SSID via platform hooks later in M6. See [networks.md](networks.md).
+- Open: app screens `networks`, `d-net-menu`, `new-net`, `disc-off`, `looking`,
+  `connect` against the fake node.
+- Moved to M2: *Connect by address* (a manual address has no announcement, so only the
+  handshake can tell who is there).
 
 ## M2 — Authenticated connections
 

@@ -17,9 +17,9 @@ Linux and macOS — with no cloud, no account, and no strangers.
   (delete to trash or permanently, conflict handling, backups of replaced files).
 - **Queue with progress** per device; cancel any job.
 
-> **Status:** early foundation. The workspace, core types, key derivation, discovery
-> announcement format and wire messages are in place; networking is not implemented yet.
-> See [docs/roadmap.md](docs/roadmap.md).
+> **Status:** discovery works. Devices of a group find each other on trusted networks
+> (mDNS + UDP broadcast); connections and transfers come next (M2, M3). The Flutter app
+> runs on a fake node until then. See [docs/roadmap.md](docs/roadmap.md).
 
 ## Documentation
 
@@ -64,6 +64,17 @@ cargo build --workspace
 cargo test --workspace
 cargo run -p localdrop-cli -- --help
 ```
+
+Try discovery on two computers on the same network:
+
+```bash
+localdrop init --group home --password "at-least-ten-chars"   # on both; trusts this network
+localdrop run                                                  # prints devices as they appear
+localdrop peers                                                # or: list members for 7 s
+localdrop networks                                             # what is trusted and used
+```
+
+State lives in `$LOCALDROP_HOME` or the per-user config folder (`--home` overrides it).
 
 ## License
 

@@ -148,7 +148,7 @@ pub enum SourceChangedChoice {
 }
 
 /// Trust state of a remembered network.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum NetworkTrust {
     /// Discovery runs here.
     Trusted,

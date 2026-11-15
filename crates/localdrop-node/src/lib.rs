@@ -14,9 +14,12 @@ mod events;
 #[cfg(feature = "fake")]
 pub mod fake;
 mod manifest;
+mod network;
+pub mod settings;
 
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub use api::{
@@ -31,22 +34,25 @@ use localdrop_core::{
 use localdrop_protocol::{Cursor, DirEntry, SearchHit, ShareInfo};
 pub use localdrop_store::{Direction, JobState};
 use localdrop_store::{Job, SourceStorage, Store};
+pub use settings::{NetworkSelection, OnNewNetwork, Settings, StateDir};
 use tokio::sync::mpsc;
+
+use crate::network::{Shared, key_matches};
 
 /// A running (or not yet started) LocalDrop node.
 pub struct Node {
     config: NodeConfig,
     identity: DeviceIdentity,
     group: GroupConfig,
-    #[allow(dead_code)] // used by discovery/transport once implemented
     group_key: GroupKey,
     store: Arc<dyn Store>,
     events_tx: mpsc::UnboundedSender<NodeEvent>,
+    shared: Arc<Shared>,
 }
 
 impl Node {
-    /// Creates a node for a joined group. Returns the node and the receiver for its
-    /// events.
+    /// Creates a node for a joined group with settings kept in memory only. Returns the
+    /// node and the receiver for its events.
     pub fn new(
         config: NodeConfig,
         identity: DeviceIdentity,
@@ -54,7 +60,46 @@ impl Node {
         group_key: GroupKey,
         store: Arc<dyn Store>,
     ) -> (Self, mpsc::UnboundedReceiver<NodeEvent>) {
+        let settings = Settings::new(config.device_name.clone(), group.name());
+        Self::build(config, identity, group, group_key, store, settings, None)
+    }
+
+    /// Opens the node of a joined [`StateDir`]; settings changes are saved there.
+    pub fn open(
+        dir: StateDir,
+        store: Arc<dyn Store>,
+    ) -> Result<(Self, mpsc::UnboundedReceiver<NodeEvent>)> {
+        let joined = dir.load()?;
+        let mut config = NodeConfig::new(joined.settings.device_name.clone());
+        config.listen_port = joined.settings.listen_port;
+        Ok(Self::build(
+            config,
+            joined.identity,
+            joined.group,
+            joined.key,
+            store,
+            joined.settings,
+            Some(dir),
+        ))
+    }
+
+    fn build(
+        config: NodeConfig,
+        identity: DeviceIdentity,
+        group: GroupConfig,
+        group_key: GroupKey,
+        store: Arc<dyn Store>,
+        settings: Settings,
+        dir: Option<StateDir>,
+    ) -> (Self, mpsc::UnboundedReceiver<NodeEvent>) {
         let (events_tx, events_rx) = mpsc::unbounded_channel();
+        let shared = Arc::new(Shared::new(
+            settings,
+            dir,
+            events_tx.clone(),
+            identity.device_id(),
+            group_key.clone(),
+        ));
         (
             Self {
                 config,
@@ -63,6 +108,7 @@ impl Node {
                 group_key,
                 store,
                 events_tx,
+                shared,
             },
             events_rx,
         )
@@ -80,19 +126,42 @@ impl Node {
         &self.config
     }
 
-    /// Starts discovery and the listener; offers queued jobs as peers appear. (M1–M2)
+    /// A copy of the current settings.
+    pub fn settings(&self) -> Settings {
+        self.shared.settings.lock().expect("poisoned").clone()
+    }
+
+    /// Starts discovery on the trusted networks and watches for network changes.
+    /// Must be called inside a tokio runtime. Connections and queue delivery follow in M2.
     pub async fn start(&self) -> Result<()> {
-        Err(Error::NotImplemented("node start"))
+        self.shared.start().await;
+        Ok(())
     }
 
     /// Stops all network activity. Queues are kept.
     pub async fn stop(&self) -> Result<()> {
+        self.shared.stop().await;
         Ok(())
     }
 
-    /// The discovery switch on the main screen. (M1)
-    pub async fn set_discovery(&self, _on: bool) -> Result<()> {
-        Err(Error::NotImplemented("discovery switch"))
+    /// The discovery switch on the main screen. Lasts until the next network change or
+    /// restart; then *Discovery at launch* applies again.
+    pub async fn set_discovery(&self, on: bool) -> Result<()> {
+        self.shared.discovery_on.store(on, Ordering::SeqCst);
+        self.shared.reconcile().await;
+        Ok(())
+    }
+
+    /// Whether the discovery switch is on.
+    pub fn discovery_on(&self) -> bool {
+        self.shared.discovery_on.load(Ordering::SeqCst)
+    }
+
+    /// *Visible to your group*: announce, or only browse.
+    pub async fn set_visible(&self, visible: bool) -> Result<()> {
+        self.update_settings(|s| s.visible = visible)?;
+        self.shared.reconcile().await;
+        Ok(())
     }
 
     // -- Group --------------------------------------------------------------------------
@@ -117,22 +186,53 @@ impl Node {
 
     // -- Devices ------------------------------------------------------------------------
 
-    /// Known devices with their presence and queue size.
+    /// Known devices, plus group members discovered but not yet authenticated (named by
+    /// their short id until the handshake tells their name, M2).
     pub fn devices(&self) -> Result<Vec<DeviceView>> {
-        self.store
+        let found = self.shared.peers.lock().expect("poisoned").clone();
+        let mut out: Vec<DeviceView> = self
+            .store
             .devices()?
             .into_iter()
             .map(|d| {
                 Ok(DeviceView {
                     queued_jobs: self.store.queue(&d.id, Direction::Outgoing)?.len() as u32,
+                    presence: if found.contains_key(&d.id) {
+                        Presence::Found
+                    } else {
+                        Presence::Offline
+                    },
                     id: d.id,
                     name: d.name,
-                    presence: Presence::Offline, // until discovery runs
                     last_seen_unix: d.last_seen_unix,
                     accept_override: d.accept_override,
                 })
             })
-            .collect()
+            .collect::<Result<_>>()?;
+        for id in found.keys() {
+            if !out.iter().any(|d| &d.id == id) {
+                out.push(DeviceView {
+                    id: *id,
+                    name: format!("Device {}", &id.to_string()[..8]),
+                    presence: Presence::Found,
+                    last_seen_unix: 0,
+                    accept_override: None,
+                    queued_jobs: 0,
+                });
+            }
+        }
+        Ok(out)
+    }
+
+    /// Addresses a discovered peer announced (empty if not on the network).
+    pub fn peer_addrs(&self, device: DeviceId) -> Vec<std::net::SocketAddr> {
+        self.shared
+            .peers
+            .lock()
+            .expect("poisoned")
+            .get(&device)
+            .cloned()
+            .unwrap_or_default()
     }
 
     /// Sets or clears a device's accept override (`None` = like the app default).
@@ -153,21 +253,75 @@ impl Node {
         self.store.remove_device(&device)
     }
 
-    /// *Connect by address*: `ip[:port]` or a host name. (M1)
+    /// *Connect by address*: `ip[:port]` or a host name. Needs the handshake. (M2)
     pub async fn connect_address(&self, _address: String, _remember: bool) -> Result<()> {
         Err(Error::NotImplemented("connect by address"))
     }
 
     // -- Networks -----------------------------------------------------------------------
 
-    /// Connected and remembered networks. (M1)
+    /// Connected networks (trusted or not) and remembered ones.
     pub fn networks(&self) -> Result<Vec<NetworkView>> {
-        Err(Error::NotImplemented("networks"))
+        Ok(self.shared.current_plan().0.views)
     }
 
-    /// Trust or distrust a network. (M1)
-    pub fn set_network_trust(&self, _key: String, _trust: NetworkTrust) -> Result<()> {
-        Err(Error::NotImplemented("network trust"))
+    /// Trusts or distrusts a network, by its key (full hex, or the first 8 characters).
+    /// The network must be connected or remembered.
+    pub async fn set_network_trust(&self, key: String, trust: NetworkTrust) -> Result<()> {
+        let (_, conns) = self.shared.current_plan();
+        let connected = conns.into_iter().find(|c| key_matches(&c.id.key, &key));
+        self.update_settings(|s| {
+            if let Some(c) = &connected {
+                let label = s
+                    .network(&c.id.key)
+                    .map_or_else(|| c.id.default_label.clone(), |n| n.label.clone());
+                s.set_trust(c.id.key, &label, c.id.kind, c.id.weak, trust);
+                Ok(())
+            } else if let Some(n) = s
+                .known_networks
+                .iter_mut()
+                .find(|n| key_matches(&n.key, &key))
+            {
+                n.trust = trust;
+                Ok(())
+            } else {
+                Err(Error::NotFound)
+            }
+        })??;
+        self.shared.reconcile().await;
+        Ok(())
+    }
+
+    /// Renames a remembered network.
+    pub fn rename_network(&self, key: String, label: String) -> Result<()> {
+        self.update_settings(|s| {
+            s.known_networks
+                .iter_mut()
+                .find(|n| key_matches(&n.key, &key))
+                .map(|n| n.label = label)
+                .ok_or(Error::NotFound)
+        })?
+    }
+
+    /// Forgets a remembered network (it is asked about again next time).
+    pub fn forget_network(&self, key: String) -> Result<()> {
+        self.update_settings(|s| s.known_networks.retain(|n| !key_matches(&n.key, &key)))
+    }
+
+    /// Changes the network settings (trust every network, selection, …).
+    pub async fn set_network_settings(
+        &self,
+        f: impl FnOnce(&mut settings::NetworkSettings),
+    ) -> Result<()> {
+        self.update_settings(|s| f(&mut s.networks))?;
+        self.shared.reconcile().await;
+        Ok(())
+    }
+
+    fn update_settings<R>(&self, f: impl FnOnce(&mut Settings) -> R) -> Result<R> {
+        let r = f(&mut self.shared.settings.lock().expect("poisoned"));
+        self.shared.save()?;
+        Ok(r)
     }
 
     // -- Jobs ---------------------------------------------------------------------------

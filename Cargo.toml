@@ -31,6 +31,13 @@ zeroize = { version = "1", features = ["derive"] }
 # Serialization
 serde = { version = "1", features = ["derive"] }
 postcard = { version = "1", features = ["use-std"] }
+serde_json = "1"
+base64 = "0.22"
+
+# Networking
+netdev = "0.47"
+mdns-sd = "0.21"
+socket2 = { version = "0.6", features = ["all"] }
 
 # Runtime / app
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
