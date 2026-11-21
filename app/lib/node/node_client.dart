@@ -36,11 +36,24 @@ abstract class NodeClient {
   /// `null` cancels the job.
   Future<void> answerConflict(String id, ConflictMode? mode);
 
-  Future<void> trustNetwork(
-    String key, {
-    required bool trust,
-    bool neverAsk = false,
-  });
+  /// Connected networks (trusted or not), then remembered ones.
+  Future<List<NetworkView>> networks();
+
+  /// Trusts or distrusts a connected or remembered network (key or 8-char prefix).
+  Future<void> setNetworkTrust(String key, NetworkTrust trust);
+
+  Future<void> renameNetwork(String key, String label);
+
+  /// Forgets a remembered network; it is asked about again next time.
+  Future<void> forgetNetwork(String key);
+
+  Future<NetworkSettings> networkSettings();
+
+  Future<void> setNetworkSettings(NetworkSettings settings);
+
+  /// *Connect by address*: `host` is an IP or name, `port` null = the default port.
+  /// Completes when the device answered; throws with a readable message otherwise.
+  Future<void> connectAddress(String host, {int? port, required bool remember});
 
   Future<void> dispose();
 }

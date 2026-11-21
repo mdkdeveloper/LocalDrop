@@ -5,6 +5,7 @@ import '../node/models.dart';
 import '../theme/theme.dart';
 import 'dialogs.dart';
 import 'format.dart';
+import 'settings_screen.dart';
 import 'widgets.dart';
 
 enum _Filter { all, outgoing, incoming }
@@ -55,7 +56,8 @@ class _TransfersScreenState extends State<TransfersScreen> {
               ),
             ],
           ),
-          const DiscoveryPill(),
+          // Desktop has the pill in the toolbar.
+          if (!wide) DiscoveryPill(onOpen: () => openNetworksPage(context)),
           SegmentedButton<_Filter>(
             segments: const [
               ButtonSegment(value: _Filter.all, label: Text('All')),

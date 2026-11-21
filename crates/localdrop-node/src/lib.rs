@@ -308,6 +308,17 @@ impl Node {
         self.update_settings(|s| s.known_networks.retain(|n| !key_matches(&n.key, &key)))
     }
 
+    /// *Settings › Networks*: trust every network, network menu selection, discovery at
+    /// launch, what to do on a new network.
+    pub fn network_settings(&self) -> settings::NetworkSettings {
+        self.shared
+            .settings
+            .lock()
+            .expect("poisoned")
+            .networks
+            .clone()
+    }
+
     /// Changes the network settings (trust every network, selection, …).
     pub async fn set_network_settings(
         &self,

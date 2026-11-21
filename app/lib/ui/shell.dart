@@ -7,7 +7,9 @@ import '../theme/theme.dart';
 import 'device_screen.dart';
 import 'devices_screen.dart';
 import 'dialogs.dart';
+import 'networks.dart';
 import 'placeholder_screen.dart';
+import 'settings_screen.dart';
 import 'transfers_screen.dart';
 import 'widgets.dart';
 
@@ -35,6 +37,15 @@ class DevicePlace extends Place {
   int get hashCode => id.hashCode;
 }
 
+/// Desktop: nobody found yet (`d-looking`).
+class LookingPlace extends Place {
+  const LookingPlace();
+  @override
+  bool operator ==(Object other) => other is LookingPlace;
+  @override
+  int get hashCode => 0;
+}
+
 /// Phone tabs (wireframe bottom nav); desktop shows devices in the sidebar instead.
 enum Section { files, transfers, folders, settings }
 
@@ -48,6 +59,7 @@ class Shell extends StatefulWidget {
 
 class _ShellState extends State<Shell> {
   Place _place = const SectionPlace(Section.transfers);
+  SettingsTab _settingsTab = SettingsTab.group;
   final _shown = <String>{};
   AppState? _state;
 
@@ -56,6 +68,12 @@ class _ShellState extends State<Shell> {
     super.didChangeDependencies();
     final s = AppScope.of(context);
     if (!identical(s, _state)) {
+      if (_state == null && s.devices.isEmpty && s.jobs.isEmpty) {
+        // First run: nothing to show yet but the search.
+        _place = isWide(context)
+            ? const LookingPlace()
+            : const SectionPlace(Section.files);
+      }
       _state?.removeListener(_onState);
       _state = s..addListener(_onState);
       _onState(); // decisions that arrived before the shell was built
@@ -81,6 +99,19 @@ class _ShellState extends State<Shell> {
           ..ensureVisualUpdate();
       }
     }
+    final ask = s.untrustedNetwork;
+    if (ask != null &&
+        s.askProminently &&
+        !isWide(context) &&
+        _shown.add('net:${ask.key}')) {
+      WidgetsBinding.instance
+        ..addPostFrameCallback((_) {
+          if (mounted && s.untrustedNetwork == ask) {
+            showNewNetworkSheet(context, ask);
+          }
+        })
+        ..ensureVisualUpdate();
+    }
     final err = s.lastError;
     if (err != null) {
       s.clearError();
@@ -95,6 +126,17 @@ class _ShellState extends State<Shell> {
 
   void _go(Place p) => setState(() => _place = p);
 
+  void _openNetworkSettings() {
+    if (isWide(context)) {
+      setState(() {
+        _settingsTab = SettingsTab.networks;
+        _place = const SectionPlace(Section.settings);
+      });
+    } else {
+      openNetworksPage(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) =>
       isWide(context) ? _desktop(context) : _phone(context);
@@ -103,12 +145,62 @@ class _ShellState extends State<Shell> {
     SectionPlace(section: Section.transfers) => const TransfersScreen(),
     SectionPlace(section: Section.files) => DevicesScreen(
       onOpen: (id) => _openDevice(id),
+      onTransfers: () => _go(const SectionPlace(Section.transfers)),
     ),
     SectionPlace(section: Section.folders) => const PlaceholderScreen.folders(),
-    SectionPlace(section: Section.settings) =>
-      const PlaceholderScreen.settings(),
+    SectionPlace(section: Section.settings) => SettingsScreen(
+      tab: _settingsTab,
+      onTab: (t) => setState(() => _settingsTab = t),
+    ),
     DevicePlace(:final id) => DeviceScreen(id),
+    LookingPlace() => _centered(
+      560,
+      LookingPanel(onOpen: (id) => _go(DevicePlace(id))),
+    ),
   };
+
+  Widget _centered(double width, Widget child) => Center(
+    child: SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: width),
+        child: child,
+      ),
+    ),
+  );
+
+  /// Desktop main area: the place, unless discovery state takes over
+  /// (`d-new-net`, `d-disc-off`).
+  Widget _desktopMain(Place place) {
+    final s = AppScope.of(context);
+    final settings = place == const SectionPlace(Section.settings);
+    final ask = s.untrustedNetwork;
+    if (ask != null && s.askProminently && !settings) {
+      return _centered(
+        540,
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: NewNetworkAsk(ask),
+          ),
+        ),
+      );
+    }
+    if (!s.discoveryOn && (place is DevicePlace || place is LookingPlace)) {
+      return Column(
+        children: [
+          Expanded(child: _centered(460, const DiscoveryOffCard())),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: PausedBar(
+              onView: () => _go(const SectionPlace(Section.transfers)),
+            ),
+          ),
+        ],
+      );
+    }
+    return _content(place);
+  }
 
   void _openDevice(String id) {
     if (isWide(context)) {
@@ -138,8 +230,15 @@ class _ShellState extends State<Shell> {
           Expanded(
             child: Column(
               children: [
+                _Toolbar(
+                  title: _title(place),
+                  onNetworks: () => showNetworkMenu(
+                    context,
+                    onSettings: _openNetworkSettings,
+                  ),
+                ),
                 const _NetworkBanner(),
-                Expanded(child: _content(place)),
+                Expanded(child: _desktopMain(place)),
               ],
             ),
           ),
@@ -148,10 +247,17 @@ class _ShellState extends State<Shell> {
     );
   }
 
+  String _title(Place p) => switch (p) {
+    SectionPlace(section: Section.settings) => 'Settings',
+    DevicePlace(:final id) => AppScope.of(context).nameOf(id),
+    SectionPlace() ||
+    LookingPlace() => '', // these screens have their own header
+  };
+
   Widget _phone(BuildContext context) {
     final section = switch (_place) {
       SectionPlace(:final section) => section,
-      DevicePlace() => Section.files,
+      DevicePlace() || LookingPlace() => Section.files,
     };
     final s = AppScope.of(context);
     return Scaffold(
@@ -283,7 +389,8 @@ class _Sidebar extends StatelessWidget {
                 const SectionLabel('Devices'),
                 if (online.isEmpty)
                   _SideItem(
-                    selected: false,
+                    selected: place == const LookingPlace(),
+                    onTap: () => onGo(const LookingPlace()),
                     lead: SizedBox(
                       width: 28,
                       height: 28,
@@ -295,8 +402,8 @@ class _Sidebar extends StatelessWidget {
                         ),
                       ),
                     ),
-                    title: s.discoveryOn
-                        ? 'Searching on Home…'
+                    title: s.searchingLabel != null
+                        ? 'Searching on ${s.searchingLabel}…'
                         : 'Not searching',
                     sub: 'No devices yet',
                   ),
@@ -394,7 +501,39 @@ class _SideItem extends StatelessWidget {
   }
 }
 
-/// "LocalDrop only searches on networks you trust. Trust “Office-5G”?"
+/// Desktop top bar: where you are, and the discovery pill with the network menu.
+class _Toolbar extends StatelessWidget {
+  const _Toolbar({required this.title, required this.onNetworks});
+  final String title;
+  final VoidCallback onNetworks;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.ld;
+    return Container(
+      height: 56,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: c.line)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: Theme.of(context).textTheme.titleMedium,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          DiscoveryPill(onOpen: onNetworks),
+        ],
+      ),
+    );
+  }
+}
+
+/// "LocalDrop only searches on networks you trust. Trust “Office-5G”?" while another
+/// trusted network keeps discovery running; otherwise the ask takes the main area.
 class _NetworkBanner extends StatelessWidget {
   const _NetworkBanner();
 
@@ -402,7 +541,7 @@ class _NetworkBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     final net = s.untrustedNetwork;
-    if (net == null) return const SizedBox.shrink();
+    if (net == null || s.askProminently) return const SizedBox.shrink();
     final c = context.ld;
     final t = Theme.of(context).textTheme;
     return Container(

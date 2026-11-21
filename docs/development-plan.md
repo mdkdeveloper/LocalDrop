@@ -11,13 +11,13 @@ run in parallel, which screens belong to which step, and when a step is done.
 |---|---|
 | Documentation | Complete for v1: architecture, security, discovery, networks, transfers, receiving, shares, protocol, deferred send, platforms. |
 | Design | Wireframes for every screen, phone and desktop, as a clickable prototype (`design/tools/wf.py`, ~90 screens). Styled screens in Light and Dark, colour tokens in `design/tokens.json`, icon set in `styled.py`. |
-| Rust code | ~2 000 lines. Done: group key derivation, device identity, accept policy types, sealed announcements, framing, file-name sanitizing, in-memory store. Stubs returning `NotImplemented`: mDNS, broadcast, QUIC, handshake, `Node::start`, direct send, `localdrop run`. |
-| App | Not started (`app/` holds only a README). |
-| CI / packaging | None. |
+| Rust code | Phase 0 and M1 done: v1 protocol messages, job store, node API with a fake node, discovery (mDNS + broadcast, interfaces, network fingerprints, trusted networks), CLI `init` / `run` / `peers` / `networks` / `trust`. Still stubs: QUIC, handshake, transfers (M2–M3). |
+| App | Flutter shell on the fake node: join, devices, transfers with decisions, networks and discovery screens (M1). Real node via `flutter_rust_bridge` from M2. |
+| CI / packaging | CI (`.github/workflows/ci.yml`): fmt, clippy, tests, `cargo deny`. No packaging yet. |
 
-Known mismatches between code and docs (from the roadmap): `ControlMessage` has the old
-single-offer shape, `queue_send` hashes at enqueue time and handles files only, store types
-say "transfer" instead of "job".
+When this plan was written the known mismatches between code and docs were the old
+single-offer `ControlMessage`, hashing in `queue_send` and "transfer" in store types; phase 0
+removed them.
 
 ## Principles
 

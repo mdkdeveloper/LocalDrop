@@ -90,6 +90,13 @@ pub(crate) fn plan(settings: &Settings, connected: &[Connected]) -> Plan {
         p.views.push(NetworkView {
             key: hex(&c.id.key),
             label: label(settings, c),
+            kind: c.id.kind,
+            address: c
+                .iface
+                .subnets
+                .first()
+                .map(|s| format!("{}/{}", s.addr, s.prefix)),
+            last_seen_unix: known.map_or(0, |n| n.last_seen_unix),
             connected: true,
             active,
             trust: if trusted {
@@ -105,6 +112,9 @@ pub(crate) fn plan(settings: &Settings, connected: &[Connected]) -> Plan {
             p.views.push(NetworkView {
                 key: hex(&n.key),
                 label: n.label.clone(),
+                kind: n.kind,
+                address: None,
+                last_seen_unix: n.last_seen_unix,
                 connected: false,
                 active: false,
                 trust: n.trust,
@@ -466,6 +476,9 @@ mod tests {
         assert_eq!(p.active[0].name, "wifi");
         assert!(p.ask.is_empty());
         assert_eq!(p.views[0].label, "Home");
+        assert_eq!(p.views[0].kind, NetworkKind::WiFi);
+        assert!(p.views[0].address.as_deref().unwrap().ends_with("/24"));
+        assert!(p.views[0].last_seen_unix > 0);
 
         s.networks.trust_every_network = true;
         assert_eq!(plan(&s, &c).active_networks, 2);
@@ -497,6 +510,7 @@ mod tests {
         assert_eq!(p.active[0].name, "vEthernet");
         let cafe = p.views.iter().find(|v| v.label == "Cafe").unwrap();
         assert!(!cafe.connected && cafe.weak_identity);
+        assert_eq!(cafe.address, None);
         assert!(key_matches(&NetworkKey([9; 32]), "0909"));
         assert!(!key_matches(&NetworkKey([9; 32]), "09"));
     }

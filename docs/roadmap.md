@@ -30,7 +30,7 @@ Build order, parallel tracks, screens per milestone and exit criteria:
   phone and desktop navigation, a Dart fake node, first screens (see
   [app/README.md](../app/README.md)).
 
-## M1 — Discovery (core ✅, app screens open)
+## M1 — Discovery ✅
 
 - ✅ mDNS backend (`mdns-sd`), broadcast backend, merge + `Lost` timeouts.
 - ✅ Persistent config + identity (`localdrop init` saves state).
@@ -42,8 +42,14 @@ Build order, parallel tracks, screens per milestone and exit criteria:
 - ✅ Network fingerprints and trusted networks (none trusted by default; trust on join,
   ask on new networks, optional "trust every network"), discovery-at-launch setting;
   SSID via platform hooks later in M6. See [networks.md](networks.md).
-- Open: app screens `networks`, `d-net-menu`, `new-net`, `disc-off`, `looking`,
-  `connect` against the fake node.
+- ✅ App screens against the fake node: Settings › Networks (`networks`, `d-networks`),
+  network menu from the discovery pill (`d-net-menu`), *Trust this network?* as sheet,
+  main-area card or banner (`new-net`, `d-new-net`), discovery off with paused transfers
+  (`disc-off`, `d-disc-off`), looking for devices (`looking`, `d-looking`) and the
+  *Connect by address* form (`connect`, `d-connect`; the node side needs the M2
+  handshake). `NetworkView` carries kind, address and last seen for these screens.
+- Later: listing ignored virtual adapters with an *Include* switch in `d-networks`, and
+  *Show Wi-Fi names* (needs the M6 platform hooks).
 - Moved to M2: *Connect by address* (a manual address has no announcement, so only the
   handshake can tell who is there).
 

@@ -4,12 +4,20 @@ import '../app.dart';
 import '../node/models.dart';
 import '../theme/theme.dart';
 import 'format.dart';
+import 'networks.dart';
+import 'settings_screen.dart';
 import 'widgets.dart';
 
-/// Phone "Files" tab: the group's devices (wireframes `files-root`, `looking`).
+/// Phone "Files" tab: the group's devices
+/// (wireframes `files-root`, `looking`, `disc-off`).
 class DevicesScreen extends StatelessWidget {
-  const DevicesScreen({super.key, required this.onOpen});
+  const DevicesScreen({
+    super.key,
+    required this.onOpen,
+    required this.onTransfers,
+  });
   final ValueChanged<String> onOpen;
+  final VoidCallback onTransfers;
 
   @override
   Widget build(BuildContext context) {
@@ -54,32 +62,22 @@ class DevicesScreen extends StatelessWidget {
                 ],
               ),
             ),
-            const DiscoveryPill(),
+            DiscoveryPill(onOpen: () => openNetworksPage(context)),
           ],
         ),
         const SizedBox(height: 8),
-        const SectionLabel('Online'),
-        if (online.isEmpty)
-          Card(
-            child: ListTile(
-              leading: SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2, color: c.mute),
-              ),
-              title: Text(
-                s.discoveryOn
-                    ? 'Looking for your devices…'
-                    : 'Discovery is off',
-              ),
-              subtitle: Text(
-                'Open LocalDrop on your other devices with the same group name and password.',
-                style: t.bodySmall,
-              ),
-            ),
-          )
-        else
-          GroupCard(children: online.map(tile).toList()),
+        if (!s.discoveryOn) ...[
+          const SizedBox(height: 8),
+          const DiscoveryOffCard(compact: true),
+          const SizedBox(height: 12),
+          PausedBar(onView: onTransfers),
+        ] else ...[
+          const SectionLabel('Online'),
+          if (online.isEmpty)
+            LookingPanel(onOpen: onOpen, compact: true)
+          else
+            GroupCard(children: online.map(tile).toList()),
+        ],
         if (offline.isNotEmpty) ...[
           const SectionLabel('Known · offline'),
           GroupCard(children: offline.map(tile).toList()),

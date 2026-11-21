@@ -149,21 +149,25 @@ class SectionLabel extends StatelessWidget {
 }
 
 /// The discovery switch with the network it runs on (docs/networks.md).
+///
+/// The label opens [onOpen] (network menu on desktop, Settings › Networks on phones);
+/// the switch turns discovery on and off.
 class DiscoveryPill extends StatelessWidget {
-  const DiscoveryPill({super.key});
+  const DiscoveryPill({super.key, this.onOpen});
+  final VoidCallback? onOpen;
 
   @override
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     final c = context.ld;
     final on = s.discoveryOn;
+    final where = s.searchingLabel;
     final label = !on
         ? 'Discovery off'
-        : s.activeNetworks == 0
+        : where == null
         ? 'No trusted network'
-        : 'Discovery · Home';
+        : 'Discovery · $where';
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 2, 4, 2),
       decoration: BoxDecoration(
         color: c.surface,
         borderRadius: BorderRadius.circular(999),
@@ -172,27 +176,48 @@ class DiscoveryPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: on && s.activeNetworks > 0 ? c.success : c.faint,
+          InkWell(
+            key: const Key('discovery-label'),
+            borderRadius: const BorderRadius.horizontal(
+              left: Radius.circular(999),
+            ),
+            onTap: onOpen,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: on && where != null ? c.success : c.faint,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 200),
+                    child: Text(
+                      label,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: on ? c.ink : c.mute,
+                      ),
+                    ),
+                  ),
+                  if (onOpen != null)
+                    Icon(Icons.expand_more, size: 16, color: c.mute),
+                ],
+              ),
             ),
           ),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: on ? c.ink : c.mute,
-            ),
-          ),
-          const SizedBox(width: 4),
           Transform.scale(
             scale: 0.7,
             child: Switch(
+              key: const Key('discovery-switch'),
               value: on,
               onChanged: s.setDiscovery,
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,

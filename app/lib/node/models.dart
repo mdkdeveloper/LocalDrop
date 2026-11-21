@@ -76,6 +76,96 @@ class ShareDestination extends Destination {
   final String path;
 }
 
+/// `NetworkTrust` in localdrop-node.
+enum NetworkTrust { trusted, notTrusted, neverAsk }
+
+/// `NetworkKind` in localdrop-discovery.
+enum NetworkKind { wifi, ethernet }
+
+/// A connected or remembered network (`NetworkView` in localdrop-node).
+class NetworkView {
+  const NetworkView({
+    required this.key,
+    required this.label,
+    required this.kind,
+    this.address,
+    this.lastSeenUnix = 0,
+    required this.connected,
+    required this.active,
+    required this.trust,
+    this.weakIdentity = false,
+  });
+
+  /// Fingerprint, hex. Events may carry only its first 8 characters.
+  final String key;
+  final String label;
+  final NetworkKind kind;
+
+  /// This device's address while connected, e.g. `192.168.1.23/24`.
+  final String? address;
+  final int lastSeenUnix;
+  final bool connected;
+
+  /// Discovery runs on it now.
+  final bool active;
+  final NetworkTrust trust;
+
+  /// Known only by subnet and gateway, so other networks may look the same.
+  final bool weakIdentity;
+
+  bool matches(String keyOrPrefix) =>
+      keyOrPrefix.length >= 4 && key.startsWith(keyOrPrefix);
+
+  NetworkView copyWith({
+    String? label,
+    bool? connected,
+    bool? active,
+    NetworkTrust? trust,
+    String? address,
+  }) => NetworkView(
+    key: key,
+    label: label ?? this.label,
+    kind: kind,
+    address: address ?? this.address,
+    lastSeenUnix: lastSeenUnix,
+    connected: connected ?? this.connected,
+    active: active ?? this.active,
+    trust: trust ?? this.trust,
+    weakIdentity: weakIdentity,
+  );
+}
+
+/// *Settings › Networks* (`NetworkSettings` in localdrop-node).
+class NetworkSettings {
+  const NetworkSettings({
+    this.discoverAtLaunch = true,
+    this.askOnNewNetwork = true,
+    this.trustEveryNetwork = false,
+    this.onlyNetwork,
+  });
+
+  final bool discoverAtLaunch;
+
+  /// `OnNewNetwork::AskToTrust`; false = stay silent.
+  final bool askOnNewNetwork;
+  final bool trustEveryNetwork;
+
+  /// Network menu: `null` = every trusted network, else only this key.
+  final String? onlyNetwork;
+
+  NetworkSettings copyWith({
+    bool? discoverAtLaunch,
+    bool? askOnNewNetwork,
+    bool? trustEveryNetwork,
+    String? Function()? onlyNetwork,
+  }) => NetworkSettings(
+    discoverAtLaunch: discoverAtLaunch ?? this.discoverAtLaunch,
+    askOnNewNetwork: askOnNewNetwork ?? this.askOnNewNetwork,
+    trustEveryNetwork: trustEveryNetwork ?? this.trustEveryNetwork,
+    onlyNetwork: onlyNetwork != null ? onlyNetwork() : this.onlyNetwork,
+  );
+}
+
 class GroupInfo {
   const GroupInfo(this.name, this.fingerprint);
   final String name;

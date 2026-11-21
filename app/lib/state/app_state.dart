@@ -41,6 +41,8 @@ class AppState extends ChangeNotifier {
   final decisions = <PendingDecision>[];
   final lowSpace = <String, LowSpace>{};
   UntrustedNetwork? untrustedNetwork;
+  var networks = <NetworkView>[];
+  var networkSettings = const NetworkSettings();
   final keyMismatches = <KeyMismatch>[];
   String? lastError;
 
@@ -66,6 +68,8 @@ class AppState extends ChangeNotifier {
     for (final j in await node.jobs()) {
       jobs[j.id] = j;
     }
+    networks = await node.networks();
+    networkSettings = await node.networkSettings();
     _sub = node.events.listen(apply);
     group = info;
     await node.start();
@@ -78,8 +82,10 @@ class AppState extends ChangeNotifier {
       case DiscoveryChanged(:final on, :final activeNetworks):
         discoveryOn = on;
         this.activeNetworks = activeNetworks;
+        _refreshNetworks();
       case UntrustedNetwork():
         untrustedNetwork = e;
+        _refreshNetworks();
       case PeerFound(:final device):
         _device(
           device,
@@ -154,15 +160,59 @@ class AppState extends ChangeNotifier {
     return _run(() => node.answerConflict(id, mode));
   }
 
+  /// Answers "Trust “Office-5G”?": Trust this network / Not now / Never ask.
   Future<void> answerNetwork({required bool trust, bool neverAsk = false}) {
     final net = untrustedNetwork;
     untrustedNetwork = null;
     notifyListeners();
     if (net == null) return Future.value();
-    return _run(
-      () => node.trustNetwork(net.key, trust: trust, neverAsk: neverAsk),
+    return setNetworkTrust(
+      net.key,
+      trust
+          ? NetworkTrust.trusted
+          : neverAsk
+          ? NetworkTrust.neverAsk
+          : NetworkTrust.notTrusted,
     );
   }
+
+  Future<void> setNetworkTrust(String key, NetworkTrust trust) {
+    if (untrustedNetwork != null &&
+        networkFor(untrustedNetwork!.key)?.matches(key) == true) {
+      untrustedNetwork = null; // answered from the menu or settings instead
+    }
+    return _run(() async {
+      await node.setNetworkTrust(key, trust);
+      await _refreshNetworks();
+    });
+  }
+
+  Future<void> renameNetwork(String key, String label) => _run(() async {
+    await node.renameNetwork(key, label);
+    await _refreshNetworks();
+  });
+
+  Future<void> forgetNetwork(String key) => _run(() async {
+    await node.forgetNetwork(key);
+    await _refreshNetworks();
+  });
+
+  Future<void> setNetworkSettings(NetworkSettings settings) {
+    networkSettings = settings;
+    notifyListeners();
+    return _run(() async {
+      await node.setNetworkSettings(settings);
+      networkSettings = await node.networkSettings();
+      await _refreshNetworks();
+    });
+  }
+
+  /// Throws with the node's message, so the form can show it next to the field.
+  Future<void> connectAddress(
+    String host, {
+    int? port,
+    required bool remember,
+  }) => node.connectAddress(host, port: port, remember: remember);
 
   void clearError() {
     lastError = null;
@@ -198,6 +248,31 @@ class AppState extends ChangeNotifier {
 
   String nameOf(String id) => devices[id]?.name ?? 'Unknown device';
 
+  List<NetworkView> get connectedNetworks =>
+      networks.where((n) => n.connected).toList();
+
+  List<NetworkView> get rememberedNetworks => networks
+      .where((n) => n.trust != NetworkTrust.notTrusted || !n.connected)
+      .toList();
+
+  /// Networks discovery runs on right now (empty while the switch is off).
+  List<NetworkView> get searchingOn =>
+      discoveryOn ? networks.where((n) => n.active).toList() : const [];
+
+  /// "Home", "Home + Office LAN"; null when discovery runs nowhere.
+  String? get searchingLabel {
+    final on = searchingOn;
+    return on.isEmpty ? null : on.map((n) => n.label).join(' + ');
+  }
+
+  /// No trusted network is connected, so the ask takes the main area (or a sheet)
+  /// instead of a banner (`new-net`, `d-new-net`).
+  bool get askProminently =>
+      untrustedNetwork != null && !networks.any((n) => n.active);
+
+  NetworkView? networkFor(String keyOrPrefix) =>
+      networks.where((n) => n.matches(keyOrPrefix)).firstOrNull;
+
   // -- internals ---------------------------------------------------------------------
 
   void _device(String id, DeviceView Function(DeviceView) f) {
@@ -219,6 +294,17 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  Future<void> _refreshNetworks() async {
+    try {
+      final list = await node.networks();
+      if (_disposed) return;
+      networks = list;
+      notifyListeners();
+    } catch (_) {
+      // The next change refreshes again.
+    }
+  }
+
   Future<void> _run(Future<void> Function() f) async {
     try {
       await f();
@@ -228,8 +314,11 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  bool _disposed = false;
+
   @override
   void dispose() {
+    _disposed = true;
     _sub?.cancel();
     node.dispose();
     super.dispose();

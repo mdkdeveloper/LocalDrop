@@ -11,6 +11,19 @@ abstract final class FakeIds {
   static const photos = 'a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1';
   static const scans = 'a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2';
   static const project = 'a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3';
+
+  /// Appears after a successful *Connect by address*.
+  static const deskPc = '44444444444444444444444444444444';
+
+  // Network fingerprints (64 hex); events use the first 8 characters.
+  static const home =
+      'c41e7b2093d4c0aa51f2e8b6a7d90c3e1b5f4a2d6e8c0b9a7f3d2e1c4b5a6978';
+  static const office =
+      '5f0c9a1e7d3b2c4a6e8f0d1b3a5c7e9f2b4d6a8c0e1f3a5b7d9c2e4f6a8b0c1d';
+  static const parents =
+      '9b2d4f6a8c0e1a3b5d7f9e2c4a6b8d0f1e3a5c7b9d2f4e6a8c0b1d3f5e7a9c2b';
+  static const cafe =
+      'e7a9c2b4d6f8a0c1e3b5d7f9a2c4e6b8d0f1a3c5e7b9d2f4a6c8e0b1d3f5a7c9';
 }
 
 /// A node without a network: plays the same story as `localdrop_node::fake::demo`
@@ -28,6 +41,38 @@ class FakeNode implements NodeClient {
   Timer? _ticker;
   bool _discovery = true;
   bool _started = false;
+  var _settings = const NetworkSettings();
+  final _networks = <NetworkView>[
+    const NetworkView(
+      key: FakeIds.home,
+      label: 'Home',
+      kind: NetworkKind.wifi,
+      address: '192.168.1.23/24',
+      lastSeenUnix: _created,
+      connected: true,
+      active: true,
+      trust: NetworkTrust.trusted,
+    ),
+    const NetworkView(
+      key: FakeIds.parents,
+      label: 'Parents’ Wi-Fi',
+      kind: NetworkKind.wifi,
+      lastSeenUnix: _created - 21 * 86400,
+      connected: false,
+      active: false,
+      trust: NetworkTrust.trusted,
+      weakIdentity: true,
+    ),
+    const NetworkView(
+      key: FakeIds.cafe,
+      label: 'Café Wi-Fi',
+      kind: NetworkKind.wifi,
+      lastSeenUnix: _created - 86400,
+      connected: false,
+      active: false,
+      trust: NetworkTrust.neverAsk,
+    ),
+  ];
 
   static const _bytesPerSecond = 11400000;
   static const _created = 1763200000;
@@ -141,7 +186,7 @@ class FakeNode implements NodeClient {
   @override
   Future<void> setDiscovery(bool on) async {
     _discovery = on;
-    _emit(DiscoveryChanged(on, on ? 1 : 0));
+    _emit(DiscoveryChanged(on, _activeCount));
     for (final j in _jobs.values.where(
       (j) => j.state == JobState.inProgress && !on,
     )) {
@@ -205,13 +250,69 @@ class FakeNode implements NodeClient {
   }
 
   @override
-  Future<void> trustNetwork(
-    String key, {
-    required bool trust,
-    bool neverAsk = false,
-  }) async {
-    if (trust) _emit(DiscoveryChanged(_discovery, 2));
+  Future<List<NetworkView>> networks() async => [
+    ..._networks.where((n) => n.connected),
+    ..._networks.where((n) => !n.connected),
+  ];
+
+  @override
+  Future<void> setNetworkTrust(String key, NetworkTrust trust) async {
+    final i = _network(key);
+    _networks[i] = _networks[i].copyWith(trust: trust);
+    _replan();
   }
+
+  @override
+  Future<void> renameNetwork(String key, String label) async {
+    final name = label.trim();
+    if (name.isEmpty) throw StateError('A network needs a name');
+    final i = _network(key);
+    _networks[i] = _networks[i].copyWith(label: name);
+  }
+
+  @override
+  Future<void> forgetNetwork(String key) async {
+    final i = _network(key);
+    if (_networks[i].connected) {
+      // Connected networks stay listed, but the decision is gone.
+      _networks[i] = _networks[i].copyWith(trust: NetworkTrust.notTrusted);
+    } else {
+      _networks.removeAt(i);
+    }
+    _replan();
+  }
+
+  @override
+  Future<NetworkSettings> networkSettings() async => _settings;
+
+  @override
+  Future<void> setNetworkSettings(NetworkSettings settings) async {
+    _settings = settings;
+    _replan();
+  }
+
+  /// Succeeds for `192.168.1.*` and `*.local`, as if "Desk PC" answered there.
+  @override
+  Future<void> connectAddress(
+    String host, {
+    int? port,
+    required bool remember,
+  }) async {
+    final h = host.trim();
+    if (h.isEmpty) throw StateError('Enter an address');
+    await _wait(800);
+    if (!h.startsWith('192.168.1.') && !h.endsWith('.local')) {
+      throw StateError(
+        'No LocalDrop device answered at $h:${port ?? defaultPort}. '
+        'Check the address and that LocalDrop is open there.',
+      );
+    }
+    _emit(const PeerFound(FakeIds.deskPc));
+    _emit(const PeerOnline(FakeIds.deskPc, 'Desk PC'));
+  }
+
+  /// Port shown as "Auto" in *Connect by address*.
+  static const defaultPort = 47474;
 
   @override
   Future<void> dispose() async {
@@ -225,6 +326,28 @@ class FakeNode implements NodeClient {
   // -- internals -------------------------------------------------------------------
 
   bool _canRun(JobView j) => _discovery && j.peer != FakeIds.desktop;
+
+  int _network(String key) {
+    final i = _networks.indexWhere((n) => n.matches(key));
+    if (i < 0) throw StateError('No such network');
+    return i;
+  }
+
+  bool _isActive(NetworkView n) =>
+      n.connected &&
+      (_settings.trustEveryNetwork || n.trust == NetworkTrust.trusted) &&
+      (_settings.onlyNetwork == null || n.matches(_settings.onlyNetwork!));
+
+  int get _activeCount =>
+      _discovery ? _networks.where((n) => n.active).length : 0;
+
+  /// Applies trust rules and the network menu, like `network::plan` in Rust.
+  void _replan() {
+    for (var i = 0; i < _networks.length; i++) {
+      _networks[i] = _networks[i].copyWith(active: _isActive(_networks[i]));
+    }
+    _emit(DiscoveryChanged(_discovery, _activeCount));
+  }
 
   void _tick(double seconds) {
     for (final j in _jobs.values.toList()) {
@@ -248,6 +371,22 @@ class FakeNode implements NodeClient {
 
   void _emit(NodeEvent e) {
     if (e is JobAdded) _jobs[e.job.id] = e.job;
+    if (e is UntrustedNetwork && !_networks.any((n) => n.matches(e.key))) {
+      // A second network came up next to Home; it isn't trusted yet.
+      _networks.insert(
+        1,
+        NetworkView(
+          key: FakeIds.office,
+          label: e.label,
+          kind: NetworkKind.wifi,
+          address: '10.20.1.57/22',
+          lastSeenUnix: _created,
+          connected: true,
+          active: false,
+          trust: NetworkTrust.notTrusted,
+        ),
+      );
+    }
     if (e is JobStateChanged) {
       final j = _jobs[e.id];
       if (j == null) return;

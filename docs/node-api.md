@@ -58,12 +58,30 @@ creating the node; screens `join` / `d-join`.
 | `devices() -> Vec<DeviceView>` | ✔ (presence always `Offline` until M1) | `devices`, `d-devices`, `known` |
 | `set_device_accept(device, Option<AcceptPolicy>)` | ✔ | `device`, `d-device` |
 | `forget_device(device)` — cancels its queued jobs | ✔ | `device`, `d-device` |
-| `connect_address(address, remember)` | M1 | `connect`, `d-connect` |
-| `networks() -> Vec<NetworkView>` | M1 | `networks`, `d-networks`, `d-net-menu` |
-| `set_network_trust(key, NetworkTrust)` | M1 | `new-net`, `d-new-net`, `networks` |
+| `connect_address(address, remember)` | UI ✔ (fake); node M2 | `connect`, `d-connect` |
+| `networks() -> Vec<NetworkView>` | ✔ | `networks`, `d-networks`, `d-net-menu` |
+| `set_network_trust(key, NetworkTrust)` | ✔ | `new-net`, `d-new-net`, `networks` |
+| `rename_network(key, label)` / `forget_network(key)` | ✔ | `networks`, `d-networks` |
+| `network_settings() -> NetworkSettings` / `set_network_settings(..)` | ✔ | `networks`, `d-networks`, `d-net-menu` |
 
 `DeviceView{id, name, presence: Online|Found|Offline, last_seen_unix, accept_override,
 queued_jobs}`.
+
+`NetworkView{key, label, kind: WiFi|Ethernet, address, last_seen_unix, connected, active,
+trust: Trusted|NotTrusted|NeverAsk, weak_identity}`: connected networks first, then
+remembered ones. `key` is the full hex fingerprint; events and the CLI may use its first
+8 characters, which every command accepts. `address` is this device's address while
+connected (`192.168.1.23/24`). `active` means trusted and selected in the network menu;
+whether discovery actually runs also depends on the switch (`DiscoveryChanged`).
+
+`NetworkSettings{trust_every_network, selection: TrustedNetworks|Only(key),
+discover_at_launch, on_new_network: AskToTrust|StaySilent, include_interfaces}`. The bridge
+exposes `set_network_settings` with a whole `NetworkSettings` value instead of the Rust
+closure.
+
+The app shows the *Trust this network?* ask prominently (sheet on phones, main area on
+desktop) when no trusted network is connected, and as a banner when another trusted network
+keeps discovery running.
 
 ### Jobs
 

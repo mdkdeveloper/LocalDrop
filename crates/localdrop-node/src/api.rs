@@ -6,6 +6,7 @@
 use std::path::PathBuf;
 
 use localdrop_core::{AcceptPolicy, DeviceId, JobId};
+pub use localdrop_discovery::NetworkKind;
 pub use localdrop_protocol::{ConflictMode, Destination};
 use localdrop_store::{Direction, Job, JobState};
 
@@ -165,6 +166,12 @@ pub struct NetworkView {
     pub key: String,
     /// Label, e.g. the Wi-Fi name or "Ethernet 192.168.1.x".
     pub label: String,
+    /// Wi-Fi or Ethernet.
+    pub kind: NetworkKind,
+    /// This device's address on it while connected, e.g. `192.168.1.23/24`.
+    pub address: Option<String>,
+    /// When it was last connected (Unix seconds); 0 if never remembered.
+    pub last_seen_unix: u64,
     /// Currently connected.
     pub connected: bool,
     /// Discovery currently runs on it.
