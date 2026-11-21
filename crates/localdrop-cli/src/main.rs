@@ -87,6 +87,24 @@ enum Command {
         #[arg(long)]
         remember: bool,
     },
+    /// Change the group password. Devices that don't get the new one drop out.
+    Password {
+        /// Current password (or set LOCALDROP_PASSWORD).
+        #[arg(long, env = "LOCALDROP_PASSWORD", hide_env_values = true)]
+        current: String,
+        /// New password, at least 10 characters (or set LOCALDROP_NEW_PASSWORD).
+        #[arg(long, env = "LOCALDROP_NEW_PASSWORD", hide_env_values = true)]
+        new: String,
+    },
+    /// Leave the group: deletes the group key; files and trusted networks stay.
+    Leave {
+        /// Cancel the jobs queued for other devices (kept by default).
+        #[arg(long)]
+        drop_queue: bool,
+        /// Also forget known devices and their pinned keys.
+        #[arg(long)]
+        forget_devices: bool,
+    },
     /// Send files to an online device now (M3).
     Send {
         /// Target device id.
@@ -420,6 +438,29 @@ async fn run(cmd: Command, dir: StateDir) -> localdrop_core::Result<()> {
             };
             node.stop().await?;
             out
+        }
+
+        Command::Password { current, new } => {
+            let (node, _) = open(&dir)?;
+            let before = node.group_info().fingerprint;
+            println!("checking the current password…");
+            let info = node.change_password(current, new).await?;
+            println!("password changed for group {}", info.name);
+            println!("fingerprint: {before} → {}", info.fingerprint);
+            println!("Enter the new password on every device you keep; the others drop out.");
+            Ok(())
+        }
+
+        Command::Leave {
+            drop_queue,
+            forget_devices,
+        } => {
+            let (node, _) = open(&dir)?;
+            let info = node.group_info();
+            node.leave_group(!drop_queue, forget_devices).await?;
+            println!("left group {} ({})", info.name, info.fingerprint);
+            println!("Join again with `localdrop init --group <name>`.");
+            Ok(())
         }
 
         Command::Send { .. } | Command::Queue { .. } | Command::Jobs => Err(

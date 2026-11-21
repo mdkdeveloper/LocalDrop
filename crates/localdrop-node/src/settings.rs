@@ -104,6 +104,10 @@ pub struct Settings {
     /// again at every start.
     #[serde(default)]
     pub remembered_addresses: Vec<String>,
+    /// Argon2id parameters the group key was derived with (needed to check the current
+    /// password when changing it).
+    #[serde(default)]
+    pub kdf: KdfParams,
 }
 
 impl Settings {
@@ -117,6 +121,7 @@ impl Settings {
             networks: NetworkSettings::default(),
             known_networks: Vec::new(),
             remembered_addresses: Vec::new(),
+            kdf: KdfParams::V1,
         }
     }
 
@@ -238,9 +243,9 @@ impl StateDir {
                 id
             }
         };
-        let bytes = postcard::to_stdvec(&key).map_err(|e| Error::Protocol(e.to_string()))?;
-        write_private(&self.root.join(GROUP), &bytes)?;
-        let settings = settings(&group);
+        self.save_key(&key)?;
+        let mut settings = settings(&group);
+        settings.kdf = kdf;
         self.save_settings(&settings)?;
         Ok(Joined {
             identity,
@@ -271,6 +276,12 @@ impl StateDir {
         let json =
             serde_json::to_vec_pretty(settings).map_err(|e| Error::Protocol(e.to_string()))?;
         write_atomic(&self.root.join(SETTINGS), &json, false)
+    }
+
+    /// Replaces the stored group key (after a password change).
+    pub fn save_key(&self, key: &GroupKey) -> Result<()> {
+        let bytes = postcard::to_stdvec(key).map_err(|e| Error::Protocol(e.to_string()))?;
+        write_private(&self.root.join(GROUP), &bytes)
     }
 
     /// Deletes the group key (leaving the group); identity and settings stay.

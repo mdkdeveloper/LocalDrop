@@ -71,8 +71,11 @@ Build order, parallel tracks, screens per milestone and exit criteria:
   `localdrop connect <address>`.
 - Verified on one machine with two CLI nodes over Wi-Fi discovery; a wrong password is
   refused on both sides.
-- Open: change password (with current-password check) and leave group;
-  `flutter_rust_bridge` bring-up so the app runs against the real node on desktop and
+- ✅ Change password (current password checked by deriving it again with the stored
+  Argon2id parameters; at least 10 characters; connections and announcements restart
+  with the new key) and leave group (key deleted; optional: cancel the queue, forget
+  devices). CLI `localdrop password`, `localdrop leave`.
+- Open: `flutter_rust_bridge` bring-up so the app runs against the real node on desktop and
   Android; a fixed-port setting for *Connect by address* without a port.
 
 ## M3 — Transfer engine

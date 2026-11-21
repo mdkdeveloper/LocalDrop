@@ -156,6 +156,10 @@ it authenticates with the new password.
   they keep. This is also how a lost or unwanted device is removed: it simply isn't given
   the new password.
 - Pair queues stay; jobs are delivered once the peer has joined with the new password.
+- Implementation: the Argon2id parameters used at join are kept in `settings.json`, so
+  the check derives exactly the stored key. After the change every connection and the
+  announcements restart with the new key; devices with the old password fail the
+  handshake from then on.
 
 ## Leaving the group
 

@@ -27,6 +27,9 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::{Error, Result};
 
+/// Minimum password length for new passwords (docs/security.md#threat-model).
+pub const MIN_PASSWORD_LEN: usize = 10;
+
 /// Maximum accepted group name length, in bytes after normalization.
 pub const MAX_GROUP_NAME_LEN: usize = 64;
 
@@ -152,6 +155,21 @@ impl GroupKey {
         &self.auth
     }
 
+    /// Whether both keys come from the same name and password (compares all subkeys
+    /// without stopping at the first difference).
+    pub fn same_as(&self, other: &Self) -> bool {
+        let pairs = [
+            (&self.discovery, &other.discovery),
+            (&self.auth, &other.auth),
+            (&self.fingerprint, &other.fingerprint),
+        ];
+        pairs
+            .iter()
+            .flat_map(|(a, b)| a.iter().zip(b.iter()))
+            .fold(0u8, |acc, (x, y)| acc | (x ^ y))
+            == 0
+    }
+
     /// Short human-comparable fingerprint (e.g. `3fa2-91c0`) so users can check that
     /// two devices typed the same name and password. Reveals nothing useful about the keys.
     pub fn fingerprint(&self) -> String {
@@ -199,6 +217,12 @@ mod tests {
             a.discovery_key(),
             key("work", "correct horse").discovery_key()
         );
+    }
+
+    #[test]
+    fn same_as() {
+        assert!(key("home", "pw").same_as(&key(" Home", "pw")));
+        assert!(!key("home", "pw").same_as(&key("home", "pw2")));
     }
 
     #[test]

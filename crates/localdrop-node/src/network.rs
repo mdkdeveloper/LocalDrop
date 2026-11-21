@@ -154,7 +154,10 @@ pub(crate) struct Shared {
     pub events: UnboundedSender<NodeEvent>,
     pub device_id: DeviceId,
     pub identity: DeviceIdentity,
-    pub key: GroupKey,
+    /// Group key; replaced by a password change.
+    pub key: std::sync::RwLock<GroupKey>,
+    /// Set after leaving the group: the node can't start again.
+    pub left: AtomicBool,
     pub store: Arc<dyn Store>,
     pub discovery_on: AtomicBool,
     pub lister: Lister,
@@ -198,7 +201,8 @@ impl Shared {
             events,
             device_id: identity.device_id(),
             identity,
-            key,
+            key: std::sync::RwLock::new(key),
+            left: AtomicBool::new(false),
             store,
             discovery_on: AtomicBool::new(false),
             lister: Box::new(list_interfaces),
@@ -219,6 +223,39 @@ impl Shared {
     ) -> Self {
         self.lister = Box::new(f);
         self
+    }
+
+    pub fn group_key(&self) -> GroupKey {
+        self.key.read().expect("poisoned").clone()
+    }
+
+    /// Switches to a new group key: connections and announcements made with the old one
+    /// end; devices come back once they authenticate with the new password.
+    pub async fn change_key(&self, key: GroupKey) {
+        *self.key.write().expect("poisoned") = key.clone();
+        if let Some(ep) = self.endpoint.lock().expect("poisoned").as_ref() {
+            ep.set_key(key);
+        }
+        self.close_sessions();
+        {
+            let mut run = self.run.lock().await;
+            if let Some(s) = run.service.take() {
+                s.stop().await;
+            }
+            run.last_active.clear();
+        }
+        let lost: Vec<_> = self
+            .peers
+            .lock()
+            .expect("poisoned")
+            .drain()
+            .map(|(id, _)| id)
+            .collect();
+        for device in lost {
+            self.emit(NodeEvent::PeerOffline { device });
+        }
+        self.dialing.lock().expect("poisoned").clear();
+        self.reconcile().await;
     }
 
     pub fn emit(&self, e: NodeEvent) {
@@ -352,7 +389,7 @@ impl Shared {
             }
         } else {
             let mut cfg =
-                ServiceConfig::new(self.device_id, self.key.clone(), run.port, want.clone());
+                ServiceConfig::new(self.device_id, self.group_key(), run.port, want.clone());
             cfg.announce = visible;
             let tx = run.disc_tx.clone().expect("started");
             run.service = Some(DiscoveryService::spawn(cfg, tx));

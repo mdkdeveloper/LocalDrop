@@ -68,7 +68,7 @@ impl Shared {
             match Endpoint::bind(
                 SocketAddr::from((Ipv4Addr::UNSPECIFIED, p)),
                 &identity,
-                self.key.clone(),
+                self.group_key(),
                 name.clone(),
             ) {
                 Ok(ep) => {
@@ -479,6 +479,36 @@ mod tests {
                 .await
                 .is_err()
         );
+        a.stop().await;
+        b.stop().await;
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn after_a_password_change_only_the_new_password_gets_in() {
+        let (a, mut ea) = node("old-password", "Laptop");
+        let (b, _eb) = node("old-password", "Desk PC");
+        a.start().await;
+        b.start().await;
+        let addr = format!("127.0.0.1:{}", port(&a));
+        b.connect_address(&addr).await.unwrap();
+        next(&mut ea, |e| matches!(e, NodeEvent::PeerOnline { .. })).await;
+
+        a.change_key(key("new-password")).await;
+        next(
+            &mut ea,
+            |e| matches!(e, NodeEvent::PeerOffline { device } if *device == b.device_id),
+        )
+        .await;
+        let err = b.connect_address(&addr).await.unwrap_err();
+        assert!(matches!(err, Error::AuthFailed), "{err:?}");
+
+        b.change_key(key("new-password")).await;
+        b.connect_address(&addr).await.unwrap();
+        next(
+            &mut ea,
+            |e| matches!(e, NodeEvent::PeerOnline { device, .. } if *device == b.device_id),
+        )
+        .await;
         a.stop().await;
         b.stop().await;
     }

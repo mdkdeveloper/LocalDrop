@@ -301,9 +301,10 @@ async fn establish_inner(
     }
     .map_err(|e| close_error(&e))?;
     let mut stream = tokio::io::join(recv, send);
+    let key = local.key.lock().expect("poisoned").clone();
     handshake::run(
         &mut stream,
-        &local.key,
+        &key,
         role,
         Binding {
             exporter: &exporter,

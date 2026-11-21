@@ -48,8 +48,8 @@ creating the node; screens `join` / `d-join`.
 | `start()` / `stop()` | M1 / ✔ | — |
 | `set_discovery(on)` | M1 | `disc-off`, `d-disc-off`, discovery switch |
 | `group_info() -> GroupInfo{name, fingerprint}` | ✔ | `group`, settings |
-| `change_password(current, new) -> GroupInfo` | M2 | `change-pass`, `d-change-pass` |
-| `leave_group(keep_queue, forget_devices)` | M2 | `leave`, `d-leave` |
+| `change_password(current, new) -> GroupInfo` | ✔ | `change-pass`, `d-change-pass` |
+| `leave_group(keep_queue, forget_devices)` | ✔ | `leave`, `d-leave` |
 
 ### Devices and networks
 

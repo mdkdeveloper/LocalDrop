@@ -45,7 +45,6 @@ pub struct Node {
     config: NodeConfig,
     identity: DeviceIdentity,
     group: GroupConfig,
-    group_key: GroupKey,
     store: Arc<dyn Store>,
     events_tx: mpsc::UnboundedSender<NodeEvent>,
     shared: Arc<Shared>,
@@ -107,7 +106,6 @@ impl Node {
                 config,
                 identity,
                 group,
-                group_key,
                 store,
                 events_tx,
                 shared,
@@ -137,6 +135,9 @@ impl Node {
     /// group members it finds and watches for network changes. Must be called inside a
     /// tokio runtime. Queue delivery follows in M3.
     pub async fn start(&self) -> Result<()> {
+        if self.shared.left.load(Ordering::SeqCst) {
+            return Err(Error::InvalidState);
+        }
         self.shared.start().await;
         Ok(())
     }
@@ -173,18 +174,70 @@ impl Node {
     pub fn group_info(&self) -> GroupInfo {
         GroupInfo {
             name: self.group.name().to_owned(),
-            fingerprint: self.group_key.fingerprint(),
+            fingerprint: self.shared.group_key().fingerprint(),
         }
     }
 
-    /// Changes the group password after checking the current one. (M2)
-    pub async fn change_password(&self, _current: String, _new: String) -> Result<GroupInfo> {
-        Err(Error::NotImplemented("change password"))
+    /// Changes the group password (docs/security.md#changing-the-password).
+    ///
+    /// `current` is checked by deriving the key again and comparing it with the stored
+    /// one (`Error::InvalidPassword` if wrong); `new` needs at least
+    /// [`MIN_PASSWORD_LEN`](localdrop_core::MIN_PASSWORD_LEN) characters. Devices that
+    /// don't get the new password drop out; known devices and queues are kept. Returns
+    /// the new fingerprint.
+    pub async fn change_password(&self, current: String, new: String) -> Result<GroupInfo> {
+        if new.chars().count() < localdrop_core::MIN_PASSWORD_LEN {
+            return Err(Error::InvalidPassword("use at least 10 characters"));
+        }
+        if new == current {
+            return Err(Error::InvalidPassword("the new password is the same"));
+        }
+        let kdf = self.settings().kdf;
+        let group = self.group.clone();
+        let (old, fresh) = tokio::task::spawn_blocking(move || {
+            Ok::<_, Error>((
+                GroupKey::derive(&group, &current, kdf)?,
+                GroupKey::derive(&group, &new, kdf)?,
+            ))
+        })
+        .await
+        .map_err(|e| Error::Kdf(e.to_string()))??;
+        if !old.same_as(&self.shared.group_key()) {
+            return Err(Error::InvalidPassword("the current password is wrong"));
+        }
+        if let Some(dir) = &self.shared.state_dir {
+            dir.save_key(&fresh)?;
+        }
+        tracing::info!(fingerprint = %fresh.fingerprint(), "group password changed");
+        self.shared.change_key(fresh).await;
+        Ok(self.group_info())
     }
 
-    /// Leaves the group. (M2)
-    pub async fn leave_group(&self, _keep_queue: bool, _forget_devices: bool) -> Result<()> {
-        Err(Error::NotImplemented("leave group"))
+    /// Leaves the group (docs/security.md#leaving-the-group): stops discovery and all
+    /// connections and deletes the group key. With `keep_queue` false, queued outgoing
+    /// jobs are cancelled; with `forget_devices`, known devices and their pinned keys are
+    /// removed. Files, shares, backups and trusted networks are not touched. The node
+    /// can't be started again; the front-end goes back to joining.
+    pub async fn leave_group(&self, keep_queue: bool, forget_devices: bool) -> Result<()> {
+        self.shared.left.store(true, Ordering::SeqCst);
+        self.shared.stop().await;
+        if !keep_queue {
+            for job in self.store.jobs()? {
+                if job.direction == Direction::Outgoing && job.state.is_active() {
+                    self.job_action(job.id, JobAction::Cancel)?;
+                }
+            }
+        }
+        if forget_devices {
+            for d in self.store.devices()? {
+                self.store.remove_device(&d.id)?;
+            }
+        }
+        if let Some(dir) = &self.shared.state_dir {
+            dir.forget_group()?;
+        }
+        tracing::info!(keep_queue, forget_devices, "left the group");
+        Ok(())
     }
 
     // -- Devices ------------------------------------------------------------------------
@@ -570,7 +623,7 @@ fn now_unix() -> u64 {
 #[cfg(test)]
 mod tests {
     use localdrop_core::KdfParams;
-    use localdrop_store::{KnownDevice, KnownDevices, MemoryStore};
+    use localdrop_store::{Jobs, KnownDevice, KnownDevices, MemoryStore};
 
     use super::*;
 
@@ -583,6 +636,85 @@ mod tests {
         let mut config = NodeConfig::new("test");
         config.outbox_storage = storage;
         Node::new(config, DeviceIdentity::generate(), group, key, store)
+    }
+
+    #[tokio::test]
+    async fn change_password_checks_the_current_one_and_saves_the_new_key() {
+        let dir = StateDir::new(
+            std::env::temp_dir().join(format!("localdrop-pw-{}", localdrop_core::JobId::random())),
+        );
+        dir.init(
+            "home",
+            "old-password",
+            |g| Settings::new("pc", g.name()),
+            KdfParams::INSECURE_TEST,
+        )
+        .unwrap();
+        let (node, _rx) = Node::open(dir.clone(), Arc::new(MemoryStore::new())).unwrap();
+        let before = node.group_info().fingerprint;
+
+        let e = node
+            .change_password("wrong-password".into(), "new-password-1".into())
+            .await
+            .unwrap_err();
+        assert!(matches!(e, Error::InvalidPassword(m) if m.contains("current")));
+        let e = node
+            .change_password("old-password".into(), "short".into())
+            .await
+            .unwrap_err();
+        assert!(matches!(e, Error::InvalidPassword(_)));
+        assert_eq!(node.group_info().fingerprint, before);
+
+        let info = node
+            .change_password("old-password".into(), "new-password-1".into())
+            .await
+            .unwrap();
+        assert_ne!(info.fingerprint, before);
+        let expected = GroupKey::derive(
+            &GroupConfig::new("home").unwrap(),
+            "new-password-1",
+            KdfParams::INSECURE_TEST,
+        )
+        .unwrap();
+        assert!(dir.load().unwrap().key.same_as(&expected));
+        assert_eq!(info.fingerprint, expected.fingerprint());
+        let _ = std::fs::remove_dir_all(dir.path());
+    }
+
+    #[tokio::test]
+    async fn leave_group_forgets_the_key_and_optionally_queue_and_devices() {
+        let dir = StateDir::new(std::env::temp_dir().join(format!(
+            "localdrop-leave-{}",
+            localdrop_core::JobId::random()
+        )));
+        dir.init(
+            "home",
+            "pw",
+            |g| Settings::new("pc", g.name()),
+            KdfParams::INSECURE_TEST,
+        )
+        .unwrap();
+        let store = Arc::new(MemoryStore::new());
+        let (node, _rx) = Node::open(dir.clone(), store.clone()).unwrap();
+        let peer = known(&store);
+        let file =
+            std::env::temp_dir().join(format!("ld-leave-{}.txt", localdrop_core::JobId::random()));
+        std::fs::write(&file, b"hi").unwrap();
+        let job = node
+            .queue_send(SendRequest {
+                target: peer,
+                sources: vec![file.clone()],
+                destination: Destination::Inbox,
+            })
+            .unwrap();
+
+        node.leave_group(false, true).await.unwrap();
+        assert!(!dir.is_joined());
+        assert!(store.devices().unwrap().is_empty());
+        assert_eq!(store.job(&job).unwrap().unwrap().state, JobState::Cancelled);
+        assert!(matches!(node.start().await, Err(Error::InvalidState)));
+        let _ = std::fs::remove_file(&file);
+        let _ = std::fs::remove_dir_all(dir.path());
     }
 
     fn known(store: &MemoryStore) -> DeviceId {

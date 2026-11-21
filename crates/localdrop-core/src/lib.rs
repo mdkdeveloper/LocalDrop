@@ -14,7 +14,7 @@ pub mod ids;
 pub mod policy;
 
 pub use error::{Error, Result};
-pub use group::{GroupConfig, GroupKey, KdfParams};
+pub use group::{GroupConfig, GroupKey, KdfParams, MIN_PASSWORD_LEN};
 pub use identity::{DeviceId, DeviceIdentity, PublicKey};
 pub use ids::{JobId, ShareId};
 pub use policy::{AcceptPolicy, AcceptSettings};

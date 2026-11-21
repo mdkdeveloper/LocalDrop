@@ -31,7 +31,7 @@ type AllowFn = Arc<dyn Fn(IpAddr) -> bool + Send + Sync>;
 
 /// What the endpoint knows about this device.
 pub(crate) struct Local {
-    pub key: GroupKey,
+    pub key: Mutex<GroupKey>,
     pub public_key: PublicKey,
     pub device_id: DeviceId,
     pub name: Mutex<String>,
@@ -115,7 +115,7 @@ impl Endpoint {
         Ok(Self {
             inner,
             local: Arc::new(Local {
-                key,
+                key: Mutex::new(key),
                 public_key: identity.public_key(),
                 device_id: identity.device_id(),
                 name: Mutex::new(device_name.into()),
@@ -133,6 +133,12 @@ impl Endpoint {
     /// This device's id.
     pub fn device_id(&self) -> DeviceId {
         self.local.device_id
+    }
+
+    /// Changes the group key used for new handshakes (after a password change).
+    /// Existing sessions are not affected; close them if they must re-authenticate.
+    pub fn set_key(&self, key: GroupKey) {
+        *self.local.key.lock().expect("poisoned") = key;
     }
 
     /// Changes the name sent in `Hello` on new connections.
