@@ -79,8 +79,11 @@ Build order, parallel tracks, screens per milestone and exit criteria:
   over `localdrop-node`, its own tokio runtime, events as a Dart stream; `RustNode`
   implements `NodeClient`, the app opens an already joined state at launch and uses the
   real node by default (`--dart-define=NODE=fake` for the demo).
-- Open: run the desktop app against a CLI node (Windows build needs Developer Mode for
-  plugin symlinks); Android build and an app-data state folder on mobile (`path_provider`);
+- ✅ Windows desktop app on the real node, checked against a CLI node on the same
+  machine: both find each other over Wi-Fi discovery and come online; the discovery
+  switch in the app closes the connection and turning it back on reconnects by itself.
+  (Building with plugins on Windows needs Developer Mode.)
+- Open: Android build and an app-data state folder on mobile (`path_provider`);
   screens `group`, `change-pass`, `leave`, `device`, `known`, `key`; a fixed-port setting
   for *Connect by address* without a port.
 

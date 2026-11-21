@@ -7,6 +7,7 @@ import '../theme/theme.dart';
 import 'device_screen.dart';
 import 'devices_screen.dart';
 import 'dialogs.dart';
+import 'format.dart';
 import 'networks.dart';
 import 'placeholder_screen.dart';
 import 'settings_screen.dart';
@@ -322,7 +323,8 @@ class _Sidebar extends StatelessWidget {
       title: d.name,
       sub: d.presence == Presence.offline
           ? [
-              if (d.lastSeenUnix > 0) 'Last seen',
+              if (d.lastSeenUnix > 0)
+                'Last seen ${formatAgo(d.lastSeenUnix).toLowerCase()}',
               if (d.queuedJobs > 0) '${d.queuedJobs} queued',
             ].join(' · ')
           : d.presence == Presence.found
@@ -394,13 +396,19 @@ class _Sidebar extends StatelessWidget {
                     lead: SizedBox(
                       width: 28,
                       height: 28,
-                      child: Padding(
-                        padding: const EdgeInsets.all(6),
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: c.mute,
-                        ),
-                      ),
+                      child: s.searchingLabel != null
+                          ? Padding(
+                              padding: const EdgeInsets.all(6),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: c.mute,
+                              ),
+                            )
+                          : Icon(
+                              Icons.portable_wifi_off,
+                              size: 20,
+                              color: c.faint,
+                            ),
                     ),
                     title: s.searchingLabel != null
                         ? 'Searching on ${s.searchingLabel}…'
