@@ -75,8 +75,14 @@ Build order, parallel tracks, screens per milestone and exit criteria:
   Argon2id parameters; at least 10 characters; connections and announcements restart
   with the new key) and leave group (key deleted; optional: cancel the queue, forget
   devices). CLI `localdrop password`, `localdrop leave`.
-- Open: `flutter_rust_bridge` bring-up so the app runs against the real node on desktop and
-  Android; a fixed-port setting for *Connect by address* without a port.
+- ✅ `flutter_rust_bridge` 2.13 bridge (`app/rust`, in the Cargo workspace): flat DTOs
+  over `localdrop-node`, its own tokio runtime, events as a Dart stream; `RustNode`
+  implements `NodeClient`, the app opens an already joined state at launch and uses the
+  real node by default (`--dart-define=NODE=fake` for the demo).
+- Open: run the desktop app against a CLI node (Windows build needs Developer Mode for
+  plugin symlinks); Android build and an app-data state folder on mobile (`path_provider`);
+  screens `group`, `change-pass`, `leave`, `device`, `known`, `key`; a fixed-port setting
+  for *Connect by address* without a port.
 
 ## M3 — Transfer engine
 

@@ -1,10 +1,14 @@
 import 'models.dart';
 
-/// What the UI needs from a node. Implemented by [FakeNode] now and by the
-/// flutter_rust_bridge bindings to `localdrop-node` from M2 (docs/node-api.md).
+/// What the UI needs from a node: [FakeNode] (scripted demo) or [RustNode]
+/// (`localdrop-node` through flutter_rust_bridge), see docs/node-api.md.
 abstract class NodeClient {
   /// All node events, in order. Listened to once by the app state.
   Stream<NodeEvent> get events;
+
+  /// If this device already joined a group, opens it and returns the group and this
+  /// device's name; otherwise `null` (the app shows the join screen).
+  Future<({GroupInfo group, String deviceName})?> restore();
 
   /// Derives the group key (slow: Argon2id) and joins. Returns name + fingerprint.
   Future<GroupInfo> join({

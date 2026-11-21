@@ -1,18 +1,32 @@
 # LocalDrop app
 
-Cross-platform UI in **Flutter** (Windows, Linux, macOS, Android, iOS). It will call the
+Cross-platform UI in **Flutter** (Windows, Linux, macOS, Android, iOS). It calls the
 Rust `localdrop-node` crate through
-[`flutter_rust_bridge`](https://github.com/fzyzcjy/flutter_rust_bridge) from M2; until
-then it runs on a **fake node** that plays a scripted story, so every screen can be built
-and tried without a network ([../docs/node-api.md](../docs/node-api.md#fake-node)).
+[`flutter_rust_bridge`](https://github.com/fzyzcjy/flutter_rust_bridge) 2.13 (crate
+`rust/`, built by cargokit in `rust_builder/`). A **fake node** that plays a scripted
+story is still there, so every screen can be tried without a network
+([../docs/node-api.md](../docs/node-api.md#fake-node)); the widget tests use it.
 
 ## Running
 
 ```bash
-flutter run -d windows                         # or linux / macos / an emulator
-flutter run -d windows --dart-define=FAKE_SPEED=4   # play the demo story faster
+flutter run -d windows                                   # real node (needs Rust)
+flutter run -d windows --dart-define=LOCALDROP_HOME=C:/tmp/ld-app   # separate state folder
+flutter run -d chrome --dart-define=NODE=fake            # scripted demo, also on web
+flutter run -d windows --dart-define=NODE=fake --dart-define=FAKE_SPEED=4
 flutter analyze
 flutter test
+```
+
+On Windows, Flutter plugins need symlinks: turn on **Developer Mode**
+(`start ms-settings:developers`) once, or `flutter build windows` stops with
+"Building with plugins requires symlink support".
+
+After changing `rust/src/api/`, regenerate the bindings and format them:
+
+```bash
+flutter_rust_bridge_codegen generate   # in app/; writes lib/src/rust and rust/src/frb_generated.rs
+cargo fmt                              # the generated Rust must pass `cargo fmt --check` in CI
 ```
 
 Requires Flutter 3.50+ (Material comes from the `material_ui` package).
@@ -26,7 +40,9 @@ lib/
   node/
     models.dart        Dart mirror of the node API types and NodeEvent
     node_client.dart   what the UI needs from a node
+    rust_node.dart     the real node through flutter_rust_bridge
     fake_node.dart     scripted demo node (same story and ids as localdrop_node::fake)
+  src/rust/            GENERATED bindings (flutter_rust_bridge_codegen)
   state/app_state.dart AppState: builds devices, jobs and pending dialogs from events
   theme/
     tokens.g.dart      colour tokens, GENERATED from ../design/tokens.json

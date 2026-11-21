@@ -62,6 +62,19 @@ class AppState extends ChangeNotifier {
       trustThisNetwork: trustThisNetwork,
     );
     this.deviceName = deviceName;
+    await _open(info);
+  }
+
+  /// Opens the group this device already joined, if any. Returns whether it did.
+  Future<bool> restore() async {
+    final r = await node.restore();
+    if (r == null) return false;
+    deviceName = r.deviceName;
+    await _open(r.group);
+    return true;
+  }
+
+  Future<void> _open(GroupInfo info) async {
     for (final d in await node.devices()) {
       devices[d.id] = d;
     }
@@ -309,7 +322,7 @@ class AppState extends ChangeNotifier {
     try {
       await f();
     } catch (e) {
-      lastError = '$e';
+      lastError = e is StateError ? e.message : '$e';
       notifyListeners();
     }
   }

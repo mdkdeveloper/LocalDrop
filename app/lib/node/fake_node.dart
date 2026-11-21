@@ -80,6 +80,10 @@ class FakeNode implements NodeClient {
   @override
   Stream<NodeEvent> get events => _events.stream;
 
+  /// The demo always starts at the join screen.
+  @override
+  Future<({GroupInfo group, String deviceName})?> restore() async => null;
+
   @override
   Future<GroupInfo> join({
     required String groupName,

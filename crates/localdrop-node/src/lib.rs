@@ -32,6 +32,7 @@ pub use events::NodeEvent;
 use localdrop_core::{
     AcceptPolicy, DeviceId, DeviceIdentity, Error, GroupConfig, GroupKey, JobId, Result, ShareId,
 };
+pub use localdrop_discovery::NetworkKey;
 use localdrop_protocol::{Cursor, DirEntry, SearchHit, ShareInfo};
 pub use localdrop_store::{Direction, JobState};
 use localdrop_store::{Job, SourceStorage, Store};
@@ -39,6 +40,59 @@ pub use settings::{NetworkSelection, OnNewNetwork, Settings, StateDir};
 use tokio::sync::mpsc;
 
 use crate::network::{Shared, key_matches};
+
+/// Joins (or re-joins) a group in `dir` (the join form, `join` / `d-join`): checks the
+/// password rule, derives the key (slow: Argon2id, run it off the UI thread), keeps or
+/// creates the device identity and saves everything. With `trust_this_network`, the
+/// Wi-Fi/Ethernet networks connected now (those with a default gateway) are trusted.
+/// Returns the group and the labels of the networks it trusted.
+pub fn join_group(
+    dir: &StateDir,
+    group_name: &str,
+    password: &str,
+    device_name: &str,
+    trust_this_network: bool,
+    kdf: localdrop_core::KdfParams,
+) -> Result<(GroupInfo, Vec<String>)> {
+    if password.chars().count() < localdrop_core::MIN_PASSWORD_LEN {
+        return Err(Error::InvalidPassword("use at least 10 characters"));
+    }
+    let device_name = device_name.trim();
+    if device_name.is_empty() {
+        return Err(Error::InvalidState);
+    }
+    let joined = dir.init(
+        group_name,
+        password,
+        |g| Settings::new(device_name, g.name()),
+        kdf,
+    )?;
+    let mut settings = joined.settings;
+    let mut trusted = Vec::new();
+    if trust_this_network {
+        for i in localdrop_discovery::net::list_interfaces() {
+            if i.class.usable_by_default() && i.gateway_ip.is_some() {
+                let id = localdrop_discovery::net::network_id(&i);
+                settings.set_trust(
+                    id.key,
+                    &id.default_label,
+                    id.kind,
+                    id.weak,
+                    NetworkTrust::Trusted,
+                );
+                trusted.push(id.default_label);
+            }
+        }
+        dir.save_settings(&settings)?;
+    }
+    Ok((
+        GroupInfo {
+            name: joined.group.name().to_owned(),
+            fingerprint: joined.key.fingerprint(),
+        },
+        trusted,
+    ))
+}
 
 /// A running (or not yet started) LocalDrop node.
 pub struct Node {

@@ -9,6 +9,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_rust_bridge: 2.13.0
+  localdrop_bridge:
+    path: rust_builder
   material_ui: ^1.1.0
 
 dev_dependencies:

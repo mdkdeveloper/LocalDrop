@@ -1,0 +1,26 @@
+[package]
+name = "localdrop_bridge"
+description = "flutter_rust_bridge glue between the Flutter app and localdrop-node."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+# Must match the Dart package version in app/pubspec.yaml.
+flutter_rust_bridge = "=2.13.0"
+anyhow = "1"
+localdrop-core.workspace = true
+localdrop-node.workspace = true
+localdrop-store.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }

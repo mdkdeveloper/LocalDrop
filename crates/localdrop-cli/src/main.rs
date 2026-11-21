@@ -7,8 +7,8 @@ use std::time::Duration;
 
 use clap::{Parser, Subcommand};
 use localdrop_core::{DeviceId, KdfParams};
-use localdrop_discovery::net::{list_interfaces, network_id};
-use localdrop_node::{NetworkTrust, Node, NodeEvent, Presence, Settings, StateDir};
+use localdrop_discovery::net::list_interfaces;
+use localdrop_node::{NetworkTrust, Node, NodeEvent, Presence, StateDir};
 use localdrop_store::MemoryStore;
 
 #[derive(Parser)]
@@ -185,41 +185,23 @@ async fn run(cmd: Command, dir: StateDir) -> localdrop_core::Result<()> {
             }
             let name = name.unwrap_or_else(computer_name);
             println!("Deriving the group key…");
-            let joined = dir.init(
+            let (info, trusted) = localdrop_node::join_group(
+                &dir,
                 &group,
                 &password,
-                |g| Settings::new(name.clone(), g.name()),
+                &name,
+                !no_trust,
                 KdfParams::V1,
             )?;
-            let mut settings = joined.settings;
-            let mut trusted = Vec::new();
-            if !no_trust {
-                // "Trust this network": the networks this computer is on now (those with
-                // a default gateway, i.e. the real LAN).
-                for i in list_interfaces() {
-                    if i.class.usable_by_default() && i.gateway_ip.is_some() {
-                        let id = network_id(&i);
-                        settings.set_trust(
-                            id.key,
-                            &id.default_label,
-                            id.kind,
-                            id.weak,
-                            NetworkTrust::Trusted,
-                        );
-                        trusted.push(id.default_label);
-                    }
-                }
-                dir.save_settings(&settings)?;
-            }
-            println!("group:       {}", joined.group.name());
+            println!("group:       {}", info.name);
             println!(
                 "fingerprint: {}  (must match on all your devices)",
-                joined.key.fingerprint()
+                info.fingerprint
             );
             println!(
                 "device:      {} ({})",
-                settings.device_name,
-                joined.identity.device_id()
+                name,
+                dir.load()?.identity.device_id()
             );
             if trusted.is_empty() {
                 println!("trusted:     none yet; see `localdrop networks` and `localdrop trust`");
