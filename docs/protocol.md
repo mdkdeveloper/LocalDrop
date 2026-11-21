@@ -5,7 +5,8 @@ discovery and authenticated by the membership handshake ([security.md](security.
 The connection is symmetric: both sides can send jobs and make requests.
 
 Implemented as types in `localdrop-protocol` (`messages.rs`, limits and helpers in
-`limits.rs`); nothing is sent over a network yet.
+`limits.rs`). The QUIC connection, handshake, `Hello` and `Ping`/`Pong` run over the
+network since M2 (`localdrop-transport`); job and request messages follow with M3/M4.
 
 ## Streams
 
@@ -18,6 +19,34 @@ Implemented as types in `localdrop-protocol` (`messages.rs`, limits and helpers 
 
 Each side runs one outgoing pair queue, so at most **one unit data stream per direction**
 is open at a time ([transfers.md](transfers.md#pair-queues)).
+
+### Handshake stream
+
+Raw bytes, no framing (sizes are fixed):
+
+```text
+client → server   SPAKE2 message (33 bytes, Ed25519 group, symmetric)
+server → client   SPAKE2 message (33 bytes)
+client → server   HMAC-SHA256(K, "client" || ctx)   (32 bytes)
+server → client   HMAC-SHA256(K, "server" || ctx)   (32 bytes, only after checking the client's)
+```
+
+`ctx = TLS-Exporter("EXPORTER-localdrop-v1", context = "", 32)`; the SPAKE2 identity is
+`ctx || min(pk_c, pk_s) || max(pk_c, pk_s)` with the Ed25519 keys from the certificates.
+
+### Close codes
+
+| Code | Meaning |
+|---|---|
+| 0 | normal close |
+| 1 | membership handshake failed (wrong group or password) |
+| 2 | different protocol version (reason: our version) |
+| 3 | key doesn't match the device claimed in `Hello` or expected from discovery |
+| 4 | duplicate: another connection to this device is kept (reason: closer's device id) |
+| 5 | protocol violation |
+
+When both devices dial each other, the connection opened by the smaller device id is
+kept and the other is closed with code 4.
 
 ## Framing
 

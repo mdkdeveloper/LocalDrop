@@ -66,6 +66,27 @@ enum Command {
         #[arg(long)]
         never: bool,
     },
+    /// Wait until a group member is online and measure the round trip over its
+    /// authenticated connection.
+    Ping {
+        /// Device id, the start of one, or its name.
+        device: String,
+        /// Pings to send.
+        #[arg(long, default_value_t = 3)]
+        count: u32,
+        /// Seconds to wait for the device to come online.
+        #[arg(long, default_value_t = 15)]
+        wait: u64,
+    },
+    /// Connect to a device by address (`ip[:port]` or a name) when discovery can't find
+    /// it. Without a port, the other device must listen on the fixed port 47474.
+    Connect {
+        /// Address, e.g. `192.168.1.42:51234` or `desk-pc.local`.
+        address: String,
+        /// Try this address again whenever LocalDrop starts.
+        #[arg(long)]
+        remember: bool,
+    },
     /// Send files to an online device now (M3).
     Send {
         /// Target device id.
@@ -202,6 +223,9 @@ async fn run(cmd: Command, dir: StateDir) -> localdrop_core::Result<()> {
                 node.device_id()
             );
             node.start().await?;
+            if let Some(port) = node.listen_port() {
+                println!("listening on UDP port {port}");
+            }
             loop {
                 tokio::select! {
                     _ = tokio::signal::ctrl_c() => break,
@@ -241,7 +265,12 @@ async fn run(cmd: Command, dir: StateDir) -> localdrop_core::Result<()> {
                     .iter()
                     .map(ToString::to_string)
                     .collect();
-                println!("{}  {}  {}", d.id, d.name, addrs.join(", "));
+                let state = if d.presence == Presence::Online {
+                    "online"
+                } else {
+                    "found, not connected"
+                };
+                println!("{}  {}  {state}  {}", d.id, d.name, addrs.join(", "));
             }
             node.stop().await?;
             Ok(())
@@ -329,12 +358,85 @@ async fn run(cmd: Command, dir: StateDir) -> localdrop_core::Result<()> {
             Ok(())
         }
 
-        Command::Send { .. } | Command::Queue { .. } | Command::Jobs => {
-            Err(localdrop_core::Error::NotImplemented(
-                "sending needs connections (M2) and the engine (M3)",
-            ))
+        Command::Ping {
+            device,
+            count,
+            wait,
+        } => {
+            let (node, mut events) = open(&dir)?;
+            node.start().await?;
+            let deadline = tokio::time::sleep(Duration::from_secs(wait));
+            tokio::pin!(deadline);
+            let target = loop {
+                if let Some(d) = find_online(&node, &device)? {
+                    break d;
+                }
+                tokio::select! {
+                    _ = &mut deadline => {
+                        node.stop().await?;
+                        return Err(localdrop_core::Error::Transport(format!(
+                            "“{device}” didn't come online in {wait} s (see `localdrop peers`)"
+                        )));
+                    }
+                    Some(ev) = events.recv() => {
+                        if let NodeEvent::KeyMismatch { device, name } = &ev {
+                            eprintln!("{name} ({device}) presented another key and was refused");
+                        }
+                    }
+                }
+            };
+            println!("{} ({}) is online", target.1, target.0);
+            for i in 0..count {
+                match node.ping(target.0).await {
+                    Ok(rtt) => println!("pong {}: {:.1} ms", i + 1, rtt.as_secs_f64() * 1000.0),
+                    Err(e) => println!("ping {}: {e}", i + 1),
+                }
+                tokio::time::sleep(Duration::from_millis(500)).await;
+            }
+            node.stop().await?;
+            Ok(())
         }
+
+        Command::Connect { address, remember } => {
+            let (node, _events) = open(&dir)?;
+            node.start().await?;
+            let r = node.connect_address(address.clone(), remember).await;
+            let out = match r {
+                Ok(id) => {
+                    let name = node
+                        .devices()?
+                        .into_iter()
+                        .find(|d| d.id == id)
+                        .map_or_else(String::new, |d| d.name);
+                    println!("connected to {name} ({id})");
+                    let rtt = node.ping(id).await?;
+                    println!("round trip {:.1} ms", rtt.as_secs_f64() * 1000.0);
+                    if remember {
+                        println!("remembered {address}");
+                    }
+                    Ok(())
+                }
+                Err(e) => Err(e),
+            };
+            node.stop().await?;
+            out
+        }
+
+        Command::Send { .. } | Command::Queue { .. } | Command::Jobs => Err(
+            localdrop_core::Error::NotImplemented("sending needs the transfer engine (M3)"),
+        ),
     }
+}
+
+/// An online device by id, id prefix (4+ characters) or name (case-insensitive).
+fn find_online(node: &Node, query: &str) -> localdrop_core::Result<Option<(DeviceId, String)>> {
+    let q = query.trim().to_lowercase();
+    Ok(node
+        .devices()?
+        .into_iter()
+        .filter(|d| d.presence == Presence::Online)
+        .find(|d| d.name.to_lowercase() == q || (q.len() >= 4 && d.id.to_string().starts_with(&q)))
+        .map(|d| (d.id, d.name)))
 }
 
 fn print_event(node: &Node, ev: &NodeEvent) {
@@ -362,6 +464,12 @@ fn print_event(node: &Node, ev: &NodeEvent) {
                 .map(ToString::to_string)
                 .collect();
             println!("{t} found {device} at {}", addrs.join(", "));
+        }
+        NodeEvent::PeerOnline { device, name } => {
+            println!("{t} {name} ({device}) is online")
+        }
+        NodeEvent::KeyMismatch { device, name } => {
+            println!("{t} {name} ({device}) presented a different key and was refused")
         }
         NodeEvent::PeerOffline { device } => println!("{t} lost {device}"),
         other => println!("{t} {other:?}"),

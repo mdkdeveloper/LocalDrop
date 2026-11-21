@@ -10,6 +10,7 @@
 
 pub mod api;
 mod config;
+mod connections;
 mod events;
 #[cfg(feature = "fake")]
 pub mod fake;
@@ -97,8 +98,9 @@ impl Node {
             settings,
             dir,
             events_tx.clone(),
-            identity.device_id(),
+            DeviceIdentity::from_secret_bytes(&identity.secret_bytes()),
             group_key.clone(),
+            Arc::clone(&store),
         ));
         (
             Self {
@@ -131,8 +133,9 @@ impl Node {
         self.shared.settings.lock().expect("poisoned").clone()
     }
 
-    /// Starts discovery on the trusted networks and watches for network changes.
-    /// Must be called inside a tokio runtime. Connections and queue delivery follow in M2.
+    /// Starts the QUIC endpoint and discovery on the trusted networks, connects to the
+    /// group members it finds and watches for network changes. Must be called inside a
+    /// tokio runtime. Queue delivery follows in M3.
     pub async fn start(&self) -> Result<()> {
         self.shared.start().await;
         Ok(())
@@ -190,6 +193,15 @@ impl Node {
     /// their short id until the handshake tells their name, M2).
     pub fn devices(&self) -> Result<Vec<DeviceView>> {
         let found = self.shared.peers.lock().expect("poisoned").clone();
+        let online: std::collections::HashMap<DeviceId, String> = self
+            .shared
+            .sessions
+            .lock()
+            .expect("poisoned")
+            .iter()
+            .filter(|(_, s)| !s.is_closed())
+            .map(|(id, s)| (*id, s.peer().name.clone()))
+            .collect();
         let mut out: Vec<DeviceView> = self
             .store
             .devices()?
@@ -197,7 +209,9 @@ impl Node {
             .map(|d| {
                 Ok(DeviceView {
                     queued_jobs: self.store.queue(&d.id, Direction::Outgoing)?.len() as u32,
-                    presence: if found.contains_key(&d.id) {
+                    presence: if online.contains_key(&d.id) {
+                        Presence::Online
+                    } else if found.contains_key(&d.id) {
                         Presence::Found
                     } else {
                         Presence::Offline
@@ -253,9 +267,41 @@ impl Node {
         self.store.remove_device(&device)
     }
 
-    /// *Connect by address*: `ip[:port]` or a host name. Needs the handshake. (M2)
-    pub async fn connect_address(&self, _address: String, _remember: bool) -> Result<()> {
-        Err(Error::NotImplemented("connect by address"))
+    /// *Connect by address*: `ip[:port]` or a host name; without a port the device must
+    /// listen on the fixed port 47474. The address must be on a trusted network (the
+    /// other side only accepts connections from its active subnets). With `remember`, the
+    /// address is tried again at every start. Returns the device that answered.
+    pub async fn connect_address(&self, address: String, remember: bool) -> Result<DeviceId> {
+        let id = self.shared.connect_address(&address).await?;
+        if remember {
+            let a = address.trim().to_owned();
+            self.update_settings(|s| {
+                if !s.remembered_addresses.contains(&a) {
+                    s.remembered_addresses.push(a);
+                }
+            })?;
+        }
+        Ok(id)
+    }
+
+    /// Sends `Ping` over the device's connection and returns the round-trip time.
+    pub async fn ping(&self, device: DeviceId) -> Result<std::time::Duration> {
+        let s = self
+            .shared
+            .session(&device)
+            .ok_or(Error::Transport("not connected".into()))?;
+        s.ping().await
+    }
+
+    /// The UDP port the QUIC endpoint listens on (announced to the group), once started.
+    pub fn listen_port(&self) -> Option<u16> {
+        self.shared
+            .endpoint
+            .lock()
+            .expect("poisoned")
+            .as_ref()
+            .and_then(|e| e.local_addr().ok())
+            .map(|a| a.port())
     }
 
     // -- Networks -----------------------------------------------------------------------

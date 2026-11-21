@@ -58,7 +58,9 @@ creating the node; screens `join` / `d-join`.
 | `devices() -> Vec<DeviceView>` | ✔ (presence always `Offline` until M1) | `devices`, `d-devices`, `known` |
 | `set_device_accept(device, Option<AcceptPolicy>)` | ✔ | `device`, `d-device` |
 | `forget_device(device)` — cancels its queued jobs | ✔ | `device`, `d-device` |
-| `connect_address(address, remember)` | UI ✔ (fake); node M2 | `connect`, `d-connect` |
+| `connect_address(address, remember) -> DeviceId` | ✔ | `connect`, `d-connect` |
+| `ping(device) -> Duration` | ✔ | (CLI) |
+| `listen_port() -> Option<u16>` | ✔ | `d-general` |
 | `networks() -> Vec<NetworkView>` | ✔ | `networks`, `d-networks`, `d-net-menu` |
 | `set_network_trust(key, NetworkTrust)` | ✔ | `new-net`, `d-new-net`, `networks` |
 | `rename_network(key, label)` / `forget_network(key)` | ✔ | `networks`, `d-networks` |
@@ -78,6 +80,15 @@ whether discovery actually runs also depends on the switch (`DiscoveryChanged`).
 discover_at_launch, on_new_network: AskToTrust|StaySilent, include_interfaces}`. The bridge
 exposes `set_network_settings` with a whole `NetworkSettings` value instead of the Rust
 closure.
+
+`connect_address` takes `ip[:port]` or a host name; without a port it tries 47474, the
+port to set as fixed on devices that should be reachable that way (discovery uses a random
+port by default). The address must be on a trusted network of the other device. With
+`remember` it is saved and tried again at every start.
+
+Presence: `Found` = announcement seen, `Online` = authenticated connection. A lost
+announcement doesn't take an online device offline (QUIC keep-alives decide); a closed
+connection goes back to `Found` while it is still announced, otherwise `Offline`.
 
 The app shows the *Trust this network?* ask prominently (sheet on phones, main area on
 desktop) when no trusted network is connected, and as a banner when another trusted network

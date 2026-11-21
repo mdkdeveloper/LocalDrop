@@ -100,6 +100,10 @@ pub struct Settings {
     pub networks: NetworkSettings,
     /// Remembered networks.
     pub known_networks: Vec<KnownNetwork>,
+    /// *Connect by address* entries with *Remember this address* (`host:port`), tried
+    /// again at every start.
+    #[serde(default)]
+    pub remembered_addresses: Vec<String>,
 }
 
 impl Settings {
@@ -112,6 +116,7 @@ impl Settings {
             visible: true,
             networks: NetworkSettings::default(),
             known_networks: Vec::new(),
+            remembered_addresses: Vec::new(),
         }
     }
 

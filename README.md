@@ -65,12 +65,14 @@ cargo test --workspace
 cargo run -p localdrop-cli -- --help
 ```
 
-Try discovery on two computers on the same network:
+Try discovery and authenticated connections on two computers on the same network:
 
 ```bash
 localdrop init --group home --password "at-least-ten-chars"   # on both; trusts this network
-localdrop run                                                  # prints devices as they appear
+localdrop run                                                  # prints devices as they connect
 localdrop peers                                                # or: list members for 7 s
+localdrop ping "Desk PC"                                       # round trip over the QUIC connection
+localdrop connect 192.168.1.42:51234                           # when discovery can't find it
 localdrop networks                                             # what is trusted and used
 ```
 

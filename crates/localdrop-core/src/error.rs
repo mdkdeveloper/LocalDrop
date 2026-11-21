@@ -37,6 +37,31 @@ pub enum Error {
     #[error("public key mismatch for device {0}")]
     KeyMismatch(DeviceId),
 
+    /// The membership handshake failed: the other side doesn't know the group password
+    /// (or we don't know theirs).
+    #[error("the other device is not in this group (wrong group name or password)")]
+    AuthFailed,
+
+    /// The peer speaks another major protocol version.
+    #[error("the other device uses protocol version {0}; update LocalDrop on both")]
+    IncompatibleVersion(u16),
+
+    /// Too many failed handshakes from this address; try again later.
+    #[error("too many failed attempts; try again in a minute")]
+    RateLimited,
+
+    /// Connecting or talking to a peer failed.
+    #[error("connection failed: {0}")]
+    Transport(String),
+
+    /// The device is already connected; the new connection was dropped in favour of it.
+    #[error("already connected to {0}")]
+    AlreadyConnected(DeviceId),
+
+    /// The peer did not answer in time.
+    #[error("timed out")]
+    Timeout,
+
     /// The requested device is not known (never seen / not paired).
     #[error("unknown device {0}")]
     UnknownDevice(DeviceId),

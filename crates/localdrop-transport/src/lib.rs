@@ -1,35 +1,23 @@
 //! Authenticated transport between group members (see `docs/security.md`).
 //!
-//! Planned stack: QUIC (`quinn`) over UDP with `rustls`, each side presenting a
-//! self-signed certificate made from its [`DeviceIdentity`](localdrop_core::DeviceIdentity).
-//! TLS gives encryption and proves possession of the device key; the
-//! [`handshake`] then proves knowledge of the group password.
+//! QUIC (`quinn`) over UDP with `rustls` (TLS 1.3 only, ALPN `localdrop/1`). Each side
+//! presents a self-signed certificate made from its
+//! [`DeviceIdentity`](localdrop_core::DeviceIdentity), so TLS gives encryption and
+//! proves possession of the device key. The [`handshake`] then proves knowledge of the
+//! group password, bound to the TLS session, and both sides exchange `Hello` on the
+//! control stream. The result is a [`Session`].
 
+pub mod cert;
 pub mod handshake;
+pub mod limit;
 mod quic;
+mod session;
 
-use std::net::SocketAddr;
+pub use handshake::Role;
+pub use quic::{ALPN, Endpoint, HANDSHAKE_TIMEOUT, Incoming};
+pub use session::{PING_TIMEOUT, PeerInfo, Session, code};
 
-use localdrop_core::{PublicKey, Result};
-pub use quic::QuicTransport;
-
-/// Default QUIC listening port (0 = pick any free port; the real port is announced).
-pub const DEFAULT_PORT: u16 = 0;
-
-/// A peer that completed both TLS and the membership handshake.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AuthenticatedPeer {
-    /// Peer's public key from its TLS certificate.
-    pub public_key: PublicKey,
-    /// Remote address.
-    pub addr: SocketAddr,
-}
-
-/// A transport that can accept and open authenticated connections.
-///
-/// Concrete types and async methods will be introduced together with the QUIC
-/// implementation; this trait captures the intended responsibilities.
-pub trait Transport: Send + Sync {
-    /// Local address the transport listens on.
-    fn local_addr(&self) -> Result<SocketAddr>;
-}
+/// Port used by *Connect by address* when none is given: devices that want to be
+/// reachable that way set it as their fixed port (Settings › General). Discovery itself
+/// uses a random port by default.
+pub const DEFAULT_FIXED_PORT: u16 = 47_474;

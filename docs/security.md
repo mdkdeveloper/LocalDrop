@@ -78,7 +78,16 @@ another member's id, which only causes a failed connection attempt.
    between two TLS sessions. Implementations rate-limit failed handshakes per source IP.
 3. **Key pinning:** after a successful handshake, the peer's public key is stored as a
    known device. Later, the same `DeviceId` with a different key is rejected
-   (`Error::KeyMismatch`) and surfaced to the user.
+   (`Error::KeyMismatch`) and surfaced to the user. Since the id is derived from the key,
+   in practice this means: the `Hello` claims another id than the certificate's key, or a
+   member announced as one device authenticates as another; both close the connection
+   (code 3) and raise `KeyMismatch`.
+
+Implementation notes (M2): failed handshakes count per source IP; after 5 failures
+within a minute that address is refused before TLS until the minute is over. The
+endpoint only accepts connections from the subnets discovery runs on (trusted networks
+and adapters added by hand), so on an untrusted network nobody can even start a
+handshake, and with discovery off every connection is closed.
 
 ## Authorization (shares)
 

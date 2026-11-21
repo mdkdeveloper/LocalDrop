@@ -11,7 +11,7 @@ run in parallel, which screens belong to which step, and when a step is done.
 |---|---|
 | Documentation | Complete for v1: architecture, security, discovery, networks, transfers, receiving, shares, protocol, deferred send, platforms. |
 | Design | Wireframes for every screen, phone and desktop, as a clickable prototype (`design/tools/wf.py`, ~90 screens). Styled screens in Light and Dark, colour tokens in `design/tokens.json`, icon set in `styled.py`. |
-| Rust code | Phase 0 and M1 done: v1 protocol messages, job store, node API with a fake node, discovery (mDNS + broadcast, interfaces, network fingerprints, trusted networks), CLI `init` / `run` / `peers` / `networks` / `trust`. Still stubs: QUIC, handshake, transfers (M2–M3). |
+| Rust code | Phase 0 and M1 done: v1 protocol messages, job store, node API with a fake node, discovery (mDNS + broadcast, interfaces, network fingerprints, trusted networks), CLI `init` / `run` / `peers` / `networks` / `trust`. M2 core: QUIC with device certificates, SPAKE2 handshake, `Hello`/`Ping`, key pinning, CLI `ping` / `connect`. Still open: change password, leave group, FRB bridge; transfers (M3). |
 | App | Flutter shell on the fake node: join, devices, transfers with decisions, networks and discovery screens (M1). Real node via `flutter_rust_bridge` from M2. |
 | CI / packaging | CI (`.github/workflows/ci.yml`): fmt, clippy, tests, `cargo deny`. No packaging yet. |
 

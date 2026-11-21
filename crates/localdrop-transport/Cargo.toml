@@ -10,6 +10,20 @@ rust-version.workspace = true
 [dependencies]
 localdrop-core.workspace = true
 localdrop-protocol.workspace = true
+quinn.workspace = true
+rustls.workspace = true
+rcgen.workspace = true
+ed25519-dalek.workspace = true
+spake2.workspace = true
+hmac.workspace = true
+sha2.workspace = true
+tokio = { workspace = true, features = ["io-util", "net", "time"] }
+tracing.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt", "macros", "time"] }
+localdrop-core.workspace = true
 
 [lints]
 workspace = true

@@ -53,13 +53,27 @@ Build order, parallel tracks, screens per milestone and exit criteria:
 - Moved to M2: *Connect by address* (a manual address has no announcement, so only the
   handshake can tell who is there).
 
-## M2 — Authenticated connections
+## M2 — Authenticated connections (core connections ✅, rest open)
 
-- QUIC transport (`quinn` + `rustls`) with self-signed device certificates.
-- SPAKE2 membership handshake bound to the TLS exporter; failure rate limiting.
-- Known-device registration and key pinning on real connections.
-- `flutter_rust_bridge` bring-up: the app runs against the real node on desktop and
-  Android.
+- ✅ QUIC transport (`quinn` + `rustls`, ring, TLS 1.3 only, ALPN `localdrop/1`) with
+  self-signed Ed25519 device certificates; flow-control windows from
+  [transfers.md](transfers.md#performance), keep-alive 5 s, idle timeout 20 s.
+- ✅ SPAKE2 membership handshake bound to the TLS exporter and both public keys, with key
+  confirmation; failed handshakes rate-limited per source IP (5 per minute).
+- ✅ `Hello` (device id must match the certificate key, same protocol version) and
+  `Ping`/`Pong` on the control stream.
+- ✅ Node: endpoint on the announced port, accepts only from active trusted subnets; dials
+  discovered members (the smaller device id dials, the other after 3 s), keeps one
+  connection per device, pins keys in the store, `PeerOnline` / `KeyMismatch` events,
+  closes everything when discovery is off. *Connect by address* (remembered addresses are
+  retried at start).
+- ✅ CLI: `localdrop peers` shows online / found, `localdrop ping <device>`,
+  `localdrop connect <address>`.
+- Verified on one machine with two CLI nodes over Wi-Fi discovery; a wrong password is
+  refused on both sides.
+- Open: change password (with current-password check) and leave group;
+  `flutter_rust_bridge` bring-up so the app runs against the real node on desktop and
+  Android; a fixed-port setting for *Connect by address* without a port.
 
 ## M3 — Transfer engine
 

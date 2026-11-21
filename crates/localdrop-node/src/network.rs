@@ -8,12 +8,15 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use localdrop_core::{DeviceId, GroupKey};
+use localdrop_core::{DeviceId, DeviceIdentity, GroupKey};
+use localdrop_discovery::Subnet;
 use localdrop_discovery::net::{NetworkId, list_interfaces, network_id};
 use localdrop_discovery::{
     ActiveInterface, DiscoveryEvent, DiscoveryService, InterfaceClass, NetInterface, NetworkKey,
     ServiceConfig,
 };
+use localdrop_store::Store;
+use localdrop_transport::{Endpoint, Session};
 use tokio::sync::mpsc::{self, UnboundedSender};
 use tokio::task::JoinHandle;
 
@@ -150,10 +153,20 @@ pub(crate) struct Shared {
     pub state_dir: Option<StateDir>,
     pub events: UnboundedSender<NodeEvent>,
     pub device_id: DeviceId,
+    pub identity: DeviceIdentity,
     pub key: GroupKey,
+    pub store: Arc<dyn Store>,
     pub discovery_on: AtomicBool,
     pub lister: Lister,
+    /// Discovered group members and their announced addresses.
     pub peers: Mutex<HashMap<DeviceId, Vec<SocketAddr>>>,
+    /// Authenticated connections, one per device.
+    pub sessions: Mutex<HashMap<DeviceId, Arc<Session>>>,
+    /// Devices being dialed now, and when each was last tried.
+    pub dialing: Mutex<HashMap<DeviceId, std::time::Instant>>,
+    /// Subnets discovery runs on; incoming connections must come from one of them.
+    pub active_subnets: Arc<std::sync::RwLock<Vec<Subnet>>>,
+    pub endpoint: Mutex<Option<Endpoint>>,
     run: tokio::sync::Mutex<Runtime>,
     asked: Mutex<HashSet<NetworkKey>>,
 }
@@ -175,18 +188,25 @@ impl Shared {
         settings: Settings,
         state_dir: Option<StateDir>,
         events: UnboundedSender<NodeEvent>,
-        device_id: DeviceId,
+        identity: DeviceIdentity,
         key: GroupKey,
+        store: Arc<dyn Store>,
     ) -> Self {
         Self {
             settings: Mutex::new(settings),
             state_dir,
             events,
-            device_id,
+            device_id: identity.device_id(),
+            identity,
             key,
+            store,
             discovery_on: AtomicBool::new(false),
             lister: Box::new(list_interfaces),
             peers: Mutex::new(HashMap::new()),
+            sessions: Mutex::new(HashMap::new()),
+            dialing: Mutex::new(HashMap::new()),
+            active_subnets: Arc::new(std::sync::RwLock::new(Vec::new())),
+            endpoint: Mutex::new(None),
             run: tokio::sync::Mutex::new(Runtime::default()),
             asked: Mutex::new(HashSet::new()),
         }
@@ -234,6 +254,10 @@ impl Shared {
         run.announce = settings.visible;
         self.discovery_on
             .store(settings.networks.discover_at_launch, Ordering::SeqCst);
+        match self.bind_endpoint(run.port, settings.listen_port != 0) {
+            Ok(port) => run.port = port,
+            Err(e) => tracing::warn!("no QUIC endpoint, only discovery runs: {e}"),
+        }
 
         let (tx, mut rx) = mpsc::unbounded_channel::<DiscoveryEvent>();
         run.disc_tx = Some(tx);
@@ -246,8 +270,12 @@ impl Shared {
         let me = Arc::clone(self);
         run.tasks
             .push(tokio::spawn(async move { me.watch().await }));
+        let me = Arc::clone(self);
+        run.tasks
+            .push(tokio::spawn(async move { me.accept_loop().await }));
         drop(run);
         self.reconcile().await;
+        self.dial_remembered();
     }
 
     /// Stops discovery and the background tasks.
@@ -255,6 +283,10 @@ impl Shared {
         let mut run = self.run.lock().await;
         for t in run.tasks.drain(..) {
             t.abort();
+        }
+        self.close_sessions();
+        if let Some(ep) = self.endpoint.lock().expect("poisoned").take() {
+            ep.close();
         }
         if let Some(s) = run.service.take() {
             s.stop().await;
@@ -294,7 +326,10 @@ impl Shared {
             return;
         }
         let want = if on { plan.active.clone() } else { Vec::new() };
+        *self.active_subnets.write().expect("poisoned") = want.iter().map(|a| a.subnet).collect();
         if want.is_empty() {
+            // Discovery off or no trusted network: nothing is sent or received.
+            self.close_sessions();
             if let Some(s) = run.service.take() {
                 s.stop().await;
             }
@@ -334,7 +369,7 @@ impl Shared {
         }
     }
 
-    fn on_discovery(&self, ev: DiscoveryEvent) {
+    fn on_discovery(self: &Arc<Self>, ev: DiscoveryEvent) {
         match ev {
             DiscoveryEvent::Found(p) => {
                 let new = self
@@ -343,12 +378,13 @@ impl Shared {
                     .expect("poisoned")
                     .insert(p.device_id, p.addrs)
                     .is_none();
-                if new {
+                if new && !self.is_connected(&p.device_id) {
                     tracing::info!(device = %p.device_id, "peer found");
                     self.emit(NodeEvent::PeerFound {
                         device: p.device_id,
                     });
                 }
+                self.maybe_dial(p.device_id);
             }
             DiscoveryEvent::Lost(device) => {
                 if self
@@ -357,7 +393,9 @@ impl Shared {
                     .expect("poisoned")
                     .remove(&device)
                     .is_some()
+                    && !self.is_connected(&device)
                 {
+                    // With a live connection the peer stays online: keep-alives decide.
                     tracing::info!(%device, "peer lost");
                     self.emit(NodeEvent::PeerOffline { device });
                 }
@@ -545,8 +583,9 @@ mod tests {
                 settings.clone(),
                 None,
                 tx,
-                DeviceIdentity::generate().device_id(),
+                DeviceIdentity::generate(),
                 key,
+                Arc::new(localdrop_store::MemoryStore::new()),
             )
             .with_lister(move || vec![lo.clone()]),
         );

@@ -23,7 +23,9 @@ argon2 = "0.5"
 hkdf = "0.12"
 sha2 = "0.10"
 chacha20poly1305 = "0.10"
-ed25519-dalek = { version = "2", features = ["rand_core"] }
+ed25519-dalek = { version = "2", features = ["rand_core", "pkcs8", "alloc"] }
+spake2 = "0.4"
+hmac = "0.12"
 rand = "0.8"
 blake3 = "1"
 zeroize = { version = "1", features = ["derive"] }
@@ -38,6 +40,9 @@ base64 = "0.22"
 netdev = "0.47"
 mdns-sd = "0.21"
 socket2 = { version = "0.6", features = ["all"] }
+quinn = { version = "0.11", default-features = false, features = ["runtime-tokio", "rustls-ring"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
+rcgen = { version = "0.13", default-features = false, features = ["crypto", "ring"] }
 
 # Runtime / app
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }

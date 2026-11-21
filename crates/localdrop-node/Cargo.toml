@@ -13,7 +13,7 @@ localdrop-discovery.workspace = true
 localdrop-protocol.workspace = true
 localdrop-transport.workspace = true
 localdrop-store.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["net", "time"] }
 tracing.workspace = true
 serde.workspace = true
 rand.workspace = true
