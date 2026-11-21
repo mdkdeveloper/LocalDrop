@@ -48,6 +48,8 @@ creating the node; screens `join` / `d-join`.
 | `start()` / `stop()` | M1 / ✔ | — |
 | `set_discovery(on)` | M1 | `disc-off`, `d-disc-off`, discovery switch |
 | `group_info() -> GroupInfo{name, fingerprint}` | ✔ | `group`, settings |
+| `set_device_name(name)`, `set_visible(on)` | ✔ | `group`, `d-general` |
+| `fixed_port()` / `set_fixed_port(port)` — 0 = random; a running node restarts its endpoint and discovery | ✔ | `d-general` (*Listening port*) |
 | `change_password(current, new) -> GroupInfo` | ✔ | `change-pass`, `d-change-pass` |
 | `leave_group(keep_queue, forget_devices)` | ✔ | `leave`, `d-leave` |
 

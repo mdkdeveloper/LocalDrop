@@ -34,6 +34,7 @@ class AppState extends ChangeNotifier {
 
   GroupInfo? group;
   String deviceName = '';
+  ThisDevice? me;
   bool discoveryOn = false;
   int activeNetworks = 0;
   final devices = <String, DeviceView>{};
@@ -86,6 +87,8 @@ class AppState extends ChangeNotifier {
     _sub = node.events.listen(apply);
     group = info;
     await node.start();
+    me = await node.thisDevice();
+    deviceName = me!.name;
     notifyListeners();
   }
 
@@ -120,8 +123,8 @@ class AppState extends ChangeNotifier {
             lastSeenUnix: DateTime.now().millisecondsSinceEpoch ~/ 1000,
           ),
         );
-      case KeyMismatch():
-        keyMismatches.add(e);
+      case KeyMismatch(:final device):
+        if (!keyMismatches.any((k) => k.device == device)) keyMismatches.add(e);
       case JobAdded(:final job):
         jobs[job.id] = job;
       case JobStateChanged(:final id, :final state):
@@ -226,6 +229,91 @@ class AppState extends ChangeNotifier {
     int? port,
     required bool remember,
   }) => node.connectAddress(host, port: port, remember: remember);
+
+  // -- this device and the group --
+
+  Future<void> _refreshMe() async {
+    me = await node.thisDevice();
+    deviceName = me!.name;
+    notifyListeners();
+  }
+
+  Future<void> setDeviceName(String name) => _run(() async {
+    await node.setDeviceName(name);
+    await _refreshMe();
+  });
+
+  Future<void> setVisible(bool visible) => _run(() async {
+    await node.setVisible(visible);
+    await _refreshMe();
+  });
+
+  Future<void> setFixedPort(int port) => _run(() async {
+    await node.setFixedPort(port);
+    await _refreshMe();
+  });
+
+  /// Throws with the node's message, so the form can show it next to the field.
+  Future<GroupInfo> changePassword(String current, String newPassword) async {
+    final info = await node.changePassword(current, newPassword);
+    group = info;
+    notifyListeners();
+    return info;
+  }
+
+  /// Leaves the group; afterwards the app shows the join screen.
+  Future<void> leaveGroup({
+    required bool keepQueue,
+    required bool forgetDevices,
+  }) => _run(() async {
+    await node.leaveGroup(keepQueue: keepQueue, forgetDevices: forgetDevices);
+    // Reset right away; the old subscription may take a moment to cancel.
+    unawaited(_sub?.cancel());
+    _sub = null;
+    group = null;
+    me = null;
+    devices.clear();
+    jobs.clear();
+    decisions.clear();
+    lowSpace.clear();
+    keyMismatches.clear();
+    untrustedNetwork = null;
+    networks = [];
+    discoveryOn = false;
+    activeNetworks = 0;
+    notifyListeners();
+  });
+
+  // -- known devices --
+
+  Future<void> _reloadDevices() async {
+    final list = await node.devices();
+    devices
+      ..clear()
+      ..addEntries(list.map((d) => MapEntry(d.id, d)));
+    for (final j in await node.jobs()) {
+      jobs[j.id] = j;
+    }
+    _recountQueues();
+    notifyListeners();
+  }
+
+  Future<void> setDeviceAccept(String device, AcceptPolicy? policy) =>
+      _run(() async {
+        await node.setDeviceAccept(device, policy);
+        await _reloadDevices();
+      });
+
+  Future<void> forgetDevice(String device) => _run(() async {
+    await node.forgetDevice(device);
+    keyMismatches.removeWhere((k) => k.device == device);
+    await _reloadDevices();
+  });
+
+  void dismissKeyMismatch(String device) {
+    keyMismatches.removeWhere((k) => k.device == device);
+    notifyListeners();
+  }
 
   void clearError() {
     lastError = null;

@@ -69,7 +69,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => 1757414019;
+  int get rustContentHash => 177203341;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -110,6 +110,13 @@ abstract class RustLibApi extends BaseApi {
 
   Stream<EventDto> crateApiNodeLdNodeEvents({required LdNode that});
 
+  int crateApiNodeLdNodeFixedPort({required LdNode that});
+
+  void crateApiNodeLdNodeForgetDevice({
+    required LdNode that,
+    required String device,
+  });
+
   void crateApiNodeLdNodeForgetNetwork({
     required LdNode that,
     required String key,
@@ -131,6 +138,8 @@ abstract class RustLibApi extends BaseApi {
     required bool forgetDevices,
   });
 
+  int? crateApiNodeLdNodeListenPort({required LdNode that});
+
   NetworkSettingsDto crateApiNodeLdNodeNetworkSettings({required LdNode that});
 
   List<NetworkDto> crateApiNodeLdNodeNetworks({required LdNode that});
@@ -148,9 +157,25 @@ abstract class RustLibApi extends BaseApi {
     required String label,
   });
 
+  void crateApiNodeLdNodeSetDeviceAccept({
+    required LdNode that,
+    required String device,
+    AcceptPolicyDto? policy,
+  });
+
+  void crateApiNodeLdNodeSetDeviceName({
+    required LdNode that,
+    required String name,
+  });
+
   Future<void> crateApiNodeLdNodeSetDiscovery({
     required LdNode that,
     required bool on_,
+  });
+
+  Future<void> crateApiNodeLdNodeSetFixedPort({
+    required LdNode that,
+    required int port,
   });
 
   Future<void> crateApiNodeLdNodeSetNetworkSettings({
@@ -164,9 +189,16 @@ abstract class RustLibApi extends BaseApi {
     required NetworkTrustDto trust,
   });
 
+  Future<void> crateApiNodeLdNodeSetVisible({
+    required LdNode that,
+    required bool visible,
+  });
+
   Future<void> crateApiNodeLdNodeStart({required LdNode that});
 
   Future<void> crateApiNodeLdNodeStop({required LdNode that});
+
+  bool crateApiNodeLdNodeVisible({required LdNode that});
 
   String crateApiNodeDefaultHome();
 
@@ -457,6 +489,65 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   );
 
   @override
+  int crateApiNodeLdNodeFixedPort({required LdNode that}) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLdNode(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 9)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_u_16,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiNodeLdNodeFixedPortConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiNodeLdNodeFixedPortConstMeta =>
+      const TaskConstMeta(debugName: "LdNode_fixed_port", argNames: ["that"]);
+
+  @override
+  void crateApiNodeLdNodeForgetDevice({
+    required LdNode that,
+    required String device,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLdNode(
+            that,
+            serializer,
+          );
+          sse_encode_String(device, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 10)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiNodeLdNodeForgetDeviceConstMeta,
+        argValues: [that, device],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiNodeLdNodeForgetDeviceConstMeta =>
+      const TaskConstMeta(
+        debugName: "LdNode_forget_device",
+        argNames: ["that", "device"],
+      );
+
+  @override
   void crateApiNodeLdNodeForgetNetwork({
     required LdNode that,
     required String key,
@@ -470,7 +561,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             serializer,
           );
           sse_encode_String(key, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 9)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 11)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
@@ -499,7 +590,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 10)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 12)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_group_info_dto,
@@ -531,7 +622,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
           sse_encode_String(id, serializer);
           sse_encode_job_action_dto(action, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 11)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 13)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
@@ -560,7 +651,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 12)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 14)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_list_job_dto,
@@ -595,7 +686,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 13,
+            funcId: 15,
             port: port_,
           );
         },
@@ -617,6 +708,32 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  int? crateApiNodeLdNodeListenPort({required LdNode that}) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLdNode(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 16)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_opt_box_autoadd_u_16,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiNodeLdNodeListenPortConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiNodeLdNodeListenPortConstMeta =>
+      const TaskConstMeta(debugName: "LdNode_listen_port", argNames: ["that"]);
+
+  @override
   NetworkSettingsDto crateApiNodeLdNodeNetworkSettings({required LdNode that}) {
     return handler.executeSync(
       SyncTask(
@@ -626,7 +743,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 14)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 17)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_network_settings_dto,
@@ -655,7 +772,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 15)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 18)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_list_network_dto,
@@ -681,7 +798,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 16,
+            funcId: 19,
             port: port_,
           );
         },
@@ -717,7 +834,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 17,
+            funcId: 20,
             port: port_,
           );
         },
@@ -753,7 +870,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
           sse_encode_String(key, serializer);
           sse_encode_String(label, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 18)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 21)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
@@ -773,6 +890,74 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  void crateApiNodeLdNodeSetDeviceAccept({
+    required LdNode that,
+    required String device,
+    AcceptPolicyDto? policy,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLdNode(
+            that,
+            serializer,
+          );
+          sse_encode_String(device, serializer);
+          sse_encode_opt_box_autoadd_accept_policy_dto(policy, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 22)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiNodeLdNodeSetDeviceAcceptConstMeta,
+        argValues: [that, device, policy],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiNodeLdNodeSetDeviceAcceptConstMeta =>
+      const TaskConstMeta(
+        debugName: "LdNode_set_device_accept",
+        argNames: ["that", "device", "policy"],
+      );
+
+  @override
+  void crateApiNodeLdNodeSetDeviceName({
+    required LdNode that,
+    required String name,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLdNode(
+            that,
+            serializer,
+          );
+          sse_encode_String(name, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 23)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiNodeLdNodeSetDeviceNameConstMeta,
+        argValues: [that, name],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiNodeLdNodeSetDeviceNameConstMeta =>
+      const TaskConstMeta(
+        debugName: "LdNode_set_device_name",
+        argNames: ["that", "name"],
+      );
+
+  @override
   Future<void> crateApiNodeLdNodeSetDiscovery({
     required LdNode that,
     required bool on_,
@@ -789,7 +974,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 19,
+            funcId: 24,
             port: port_,
           );
         },
@@ -811,6 +996,44 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<void> crateApiNodeLdNodeSetFixedPort({
+    required LdNode that,
+    required int port,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLdNode(
+            that,
+            serializer,
+          );
+          sse_encode_u_16(port, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 25,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiNodeLdNodeSetFixedPortConstMeta,
+        argValues: [that, port],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiNodeLdNodeSetFixedPortConstMeta =>
+      const TaskConstMeta(
+        debugName: "LdNode_set_fixed_port",
+        argNames: ["that", "port"],
+      );
+
+  @override
   Future<void> crateApiNodeLdNodeSetNetworkSettings({
     required LdNode that,
     required NetworkSettingsDto settings,
@@ -827,7 +1050,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 20,
+            funcId: 26,
             port: port_,
           );
         },
@@ -867,7 +1090,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 21,
+            funcId: 27,
             port: port_,
           );
         },
@@ -889,6 +1112,44 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<void> crateApiNodeLdNodeSetVisible({
+    required LdNode that,
+    required bool visible,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLdNode(
+            that,
+            serializer,
+          );
+          sse_encode_bool(visible, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 28,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiNodeLdNodeSetVisibleConstMeta,
+        argValues: [that, visible],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiNodeLdNodeSetVisibleConstMeta =>
+      const TaskConstMeta(
+        debugName: "LdNode_set_visible",
+        argNames: ["that", "visible"],
+      );
+
+  @override
   Future<void> crateApiNodeLdNodeStart({required LdNode that}) {
     return handler.executeNormal(
       NormalTask(
@@ -901,7 +1162,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 22,
+            funcId: 29,
             port: port_,
           );
         },
@@ -932,7 +1193,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 23,
+            funcId: 30,
             port: port_,
           );
         },
@@ -951,12 +1212,38 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "LdNode_stop", argNames: ["that"]);
 
   @override
+  bool crateApiNodeLdNodeVisible({required LdNode that}) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerLdNode(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 31)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_bool,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiNodeLdNodeVisibleConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiNodeLdNodeVisibleConstMeta =>
+      const TaskConstMeta(debugName: "LdNode_visible", argNames: ["that"]);
+
+  @override
   String crateApiNodeDefaultHome() {
     return handler.executeSync(
       SyncTask(
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 24)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 32)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_String,
@@ -981,7 +1268,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 25,
+            funcId: 33,
             port: port_,
           );
         },
@@ -1006,7 +1293,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(home, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 26)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 34)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_bool,
@@ -1042,7 +1329,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 27,
+            funcId: 35,
             port: port_,
           );
         },
@@ -1161,6 +1448,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   NetworkSettingsDto dco_decode_box_autoadd_network_settings_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_network_settings_dto(raw);
+  }
+
+  @protected
+  int dco_decode_box_autoadd_u_16(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
   }
 
   @protected
@@ -1382,9 +1675,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  int? dco_decode_opt_box_autoadd_u_16(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_u_16(raw);
+  }
+
+  @protected
   PresenceDto dco_decode_presence_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return PresenceDto.values[raw as int];
+  }
+
+  @protected
+  int dco_decode_u_16(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
   }
 
   @protected
@@ -1524,6 +1829,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_network_settings_dto(deserializer));
+  }
+
+  @protected
+  int sse_decode_box_autoadd_u_16(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_u_16(deserializer));
   }
 
   @protected
@@ -1826,10 +2137,27 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  int? sse_decode_opt_box_autoadd_u_16(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_u_16(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
   PresenceDto sse_decode_presence_dto(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var inner = sse_decode_i_32(deserializer);
     return PresenceDto.values[inner];
+  }
+
+  @protected
+  int sse_decode_u_16(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getUint16();
   }
 
   @protected
@@ -1987,6 +2315,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_network_settings_dto(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_u_16(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_16(self, serializer);
   }
 
   @protected
@@ -2239,9 +2573,25 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_opt_box_autoadd_u_16(int? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_u_16(self, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_presence_dto(PresenceDto self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
+  void sse_encode_u_16(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putUint16(self);
   }
 
   @protected
@@ -2340,6 +2690,14 @@ class LdNodeImpl extends RustOpaque implements LdNode {
   Stream<EventDto> events() =>
       RustLib.instance.api.crateApiNodeLdNodeEvents(that: this);
 
+  /// Fixed listening port, 0 = random at every start.
+  int fixedPort() =>
+      RustLib.instance.api.crateApiNodeLdNodeFixedPort(that: this);
+
+  /// Forgets a device and its pinned key; its queued jobs are cancelled.
+  void forgetDevice({required String device}) => RustLib.instance.api
+      .crateApiNodeLdNodeForgetDevice(that: this, device: device);
+
   void forgetNetwork({required String key}) => RustLib.instance.api
       .crateApiNodeLdNodeForgetNetwork(that: this, key: key);
 
@@ -2363,6 +2721,10 @@ class LdNodeImpl extends RustOpaque implements LdNode {
     forgetDevices: forgetDevices,
   );
 
+  /// The port in use now, if running.
+  int? listenPort() =>
+      RustLib.instance.api.crateApiNodeLdNodeListenPort(that: this);
+
   NetworkSettingsDto networkSettings() =>
       RustLib.instance.api.crateApiNodeLdNodeNetworkSettings(that: this);
 
@@ -2378,8 +2740,22 @@ class LdNodeImpl extends RustOpaque implements LdNode {
       .api
       .crateApiNodeLdNodeRenameNetwork(that: this, key: key, label: label);
 
+  /// `None` = like the app default.
+  void setDeviceAccept({required String device, AcceptPolicyDto? policy}) =>
+      RustLib.instance.api.crateApiNodeLdNodeSetDeviceAccept(
+        that: this,
+        device: device,
+        policy: policy,
+      );
+
+  void setDeviceName({required String name}) => RustLib.instance.api
+      .crateApiNodeLdNodeSetDeviceName(that: this, name: name);
+
   Future<void> setDiscovery({required bool on_}) =>
       RustLib.instance.api.crateApiNodeLdNodeSetDiscovery(that: this, on_: on_);
+
+  Future<void> setFixedPort({required int port}) => RustLib.instance.api
+      .crateApiNodeLdNodeSetFixedPort(that: this, port: port);
 
   Future<void> setNetworkSettings({required NetworkSettingsDto settings}) =>
       RustLib.instance.api.crateApiNodeLdNodeSetNetworkSettings(
@@ -2396,9 +2772,15 @@ class LdNodeImpl extends RustOpaque implements LdNode {
     trust: trust,
   );
 
+  Future<void> setVisible({required bool visible}) => RustLib.instance.api
+      .crateApiNodeLdNodeSetVisible(that: this, visible: visible);
+
   Future<void> start() =>
       RustLib.instance.api.crateApiNodeLdNodeStart(that: this);
 
   Future<void> stop() =>
       RustLib.instance.api.crateApiNodeLdNodeStop(that: this);
+
+  /// *Visible to your group*.
+  bool visible() => RustLib.instance.api.crateApiNodeLdNodeVisible(that: this);
 }

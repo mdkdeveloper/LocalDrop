@@ -83,9 +83,17 @@ Build order, parallel tracks, screens per milestone and exit criteria:
   machine: both find each other over Wi-Fi discovery and come online; the discovery
   switch in the app closes the connection and turning it back on reconnects by itself.
   (Building with plugins on Windows needs Developer Mode.)
-- Open: Android build and an app-data state folder on mobile (`path_provider`);
-  screens `group`, `change-pass`, `leave`, `device`, `known`, `key`; a fixed-port setting
-  for *Connect by address* without a port.
+- ✅ App screens on the real node: Settings › General (group, fingerprint, change
+  password, leave, this device's name, visibility, device id, listening port) and
+  `group` on phones; `change-pass` / `d-change-pass` (current password checked, new
+  fingerprint shown), `leave` / `d-leave`; known devices (`known`, `d-devices`) with
+  device details (`device`, `d-device`: accept policy, forget) and the key mismatch
+  dialog (`key`, `d-key`: keep blocked or forget; no "trust new key", since a
+  reinstalled device gets a new id). Fixed listening port: with 47474, *Connect by
+  address* works without a port. Checked on Windows against CLI nodes.
+- After a failed handshake a device is dialed again only after 2 minutes, so a device
+  with an old password doesn't use up the rate limit.
+- Open: Android build and an app-data state folder on mobile (`path_provider`).
 
 ## M3 — Transfer engine
 

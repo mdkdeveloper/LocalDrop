@@ -1919,13 +1919,16 @@ def key_body():
                                   T(v, 15, "Bold", INK if on else FAINT, letterSpacing=1),
                                   gap=2, sizingH="hug")
     return [
-        row("Head", icon(40, 12, DARK), col("Text", T("Desk PC's key has changed", 20,
+        row("Head", icon(40, 12, DARK), col("Text", T("Desk PC's key doesn't match", 20,
                                                        "Bold"),
-                                             T("Blocked until you decide", 13, color=MUTE),
+                                             T("Refused", 13, color=MUTE),
                                              gap=2)),
-        T("Desk PC is presenting a different device key than before. That's expected after "
-          "reinstalling LocalDrop or resetting the device. Otherwise someone in your group "
-          "may be pretending to be it.", 14, color=MUTE, wrap=True),
+        # The device id is derived from the key: a reinstalled device shows up as a new
+        # device, so a mismatch is never "expected" and there is no "trust new key".
+        T("A device in your group answered as Desk PC but couldn't prove it has that "
+          "device's key, so LocalDrop didn't connect. A reinstalled device doesn't cause "
+          "this: it shows up as a new device. Someone may be pretending to be Desk PC.", 14,
+          color=MUTE, wrap=True),
         row("Keys", fp("Known key", "3c07-118a-e4f0", False), T("→", 16, color=MUTE),
             fp("New key", "9b2d-40e7-1c58", True), gap=16, pad=14, fills=[BG],
             cornerRadius=12),
@@ -1937,15 +1940,14 @@ def key_body():
 def d_key():
     dlg = dialog_box(*key_body(),
                      row("Actions", link(T("Forget Desk PC", 13, "Semi Bold", MUTE), "back"),
-                         spacer(), link(button("Keep blocked", primary=False), "back"),
-                         link(button("Trust new key"), "back"), gap=10), w=540)
+                         spacer(), link(button("Keep blocked"), "back"), gap=10), w=540)
     return modal(d_remote(), "Desktop / 19 Key changed", dlg)
 
 
 def p_key():
     return psheet("Phone / 23 Key changed", *key_body(),
-                  col("Actions", link(button("Trust new key", full=True), "back"),
-                      link(button("Keep blocked", primary=False, full=True), "back"),
+                  col("Actions", link(button("Keep blocked", full=True), "back"),
+                      link(button("Forget Desk PC", primary=False, full=True), "back"),
                       gap=8))
 
 

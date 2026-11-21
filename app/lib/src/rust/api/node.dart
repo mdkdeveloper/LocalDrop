@@ -63,6 +63,12 @@ abstract class LdNode implements RustOpaqueInterface {
   /// All node events, in order. Can be called once.
   Stream<EventDto> events();
 
+  /// Fixed listening port, 0 = random at every start.
+  int fixedPort();
+
+  /// Forgets a device and its pinned key; its queued jobs are cancelled.
+  void forgetDevice({required String device});
+
   void forgetNetwork({required String key});
 
   GroupInfoDto groupInfo();
@@ -75,6 +81,9 @@ abstract class LdNode implements RustOpaqueInterface {
     required bool keepQueue,
     required bool forgetDevices,
   });
+
+  /// The port in use now, if running.
+  int? listenPort();
 
   NetworkSettingsDto networkSettings();
 
@@ -89,7 +98,14 @@ abstract class LdNode implements RustOpaqueInterface {
 
   void renameNetwork({required String key, required String label});
 
+  /// `None` = like the app default.
+  void setDeviceAccept({required String device, AcceptPolicyDto? policy});
+
+  void setDeviceName({required String name});
+
   Future<void> setDiscovery({required bool on_});
+
+  Future<void> setFixedPort({required int port});
 
   Future<void> setNetworkSettings({required NetworkSettingsDto settings});
 
@@ -98,9 +114,14 @@ abstract class LdNode implements RustOpaqueInterface {
     required NetworkTrustDto trust,
   });
 
+  Future<void> setVisible({required bool visible});
+
   Future<void> start();
 
   Future<void> stop();
+
+  /// *Visible to your group*.
+  bool visible();
 }
 
 enum AcceptPolicyDto { autoAccept, ask }

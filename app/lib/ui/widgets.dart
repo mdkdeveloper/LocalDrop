@@ -429,3 +429,83 @@ class EmptyState extends StatelessWidget {
     );
   }
 }
+
+/// Asks for one line of text; `null` if cancelled. The dialog owns its controller, so
+/// nothing is disposed while the closing animation still shows the field.
+Future<String?> askText(
+  BuildContext context, {
+  required String title,
+  required String label,
+  required String initial,
+  required String action,
+  String? hint,
+  bool number = false,
+}) => showDialog<String>(
+  context: context,
+  builder: (_) => _AskTextDialog(
+    title: title,
+    label: label,
+    initial: initial,
+    action: action,
+    hint: hint,
+    number: number,
+  ),
+);
+
+class _AskTextDialog extends StatefulWidget {
+  const _AskTextDialog({
+    required this.title,
+    required this.label,
+    required this.initial,
+    required this.action,
+    this.hint,
+    this.number = false,
+  });
+
+  final String title;
+  final String label;
+  final String initial;
+  final String action;
+  final String? hint;
+  final bool number;
+
+  @override
+  State<_AskTextDialog> createState() => _AskTextDialogState();
+}
+
+class _AskTextDialogState extends State<_AskTextDialog> {
+  late final _ctl = TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _ctl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text(widget.title),
+    content: TextField(
+      key: const Key('ask-text'),
+      controller: _ctl,
+      autofocus: true,
+      keyboardType: widget.number ? TextInputType.number : null,
+      decoration: InputDecoration(
+        labelText: widget.label,
+        helperText: widget.hint,
+        helperMaxLines: 3,
+      ),
+      onSubmitted: (v) => Navigator.pop(context, v),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        onPressed: () => Navigator.pop(context, _ctl.text),
+        child: Text(widget.action),
+      ),
+    ],
+  );
+}

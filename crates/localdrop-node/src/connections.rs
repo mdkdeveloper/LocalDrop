@@ -17,6 +17,10 @@ use crate::network::Shared;
 const DIAL_DELAY_HIGHER: Duration = Duration::from_secs(3);
 /// Minimum time between two dial attempts to the same device.
 const REDIAL_AFTER: Duration = Duration::from_secs(10);
+/// After a failed handshake (the device has another password, e.g. after a password
+/// change) wait longer: every attempt costs it one of the few tries the other side allows
+/// per minute.
+const REDIAL_AFTER_AUTH_FAILED: Duration = Duration::from_secs(120);
 
 fn now_unix() -> u64 {
     SystemTime::now()
@@ -172,6 +176,14 @@ impl Shared {
                     return;
                 }
                 Err(Error::AlreadyConnected(_)) => return,
+                Err(Error::AuthFailed) => {
+                    // Back off: `maybe_dial` waits until REDIAL_AFTER has passed since
+                    // this (future) instant.
+                    let until = Instant::now() + REDIAL_AFTER_AUTH_FAILED - REDIAL_AFTER;
+                    self.dialing.lock().expect("poisoned").insert(device, until);
+                    self.on_connect_error(Some(device), addr, Error::AuthFailed);
+                    return;
+                }
                 Err(e) => {
                     let stop = matches!(e, Error::KeyMismatch(_));
                     self.on_connect_error(Some(device), addr, e);

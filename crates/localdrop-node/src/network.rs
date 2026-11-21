@@ -315,6 +315,10 @@ impl Shared {
         self.dial_remembered();
     }
 
+    pub async fn is_started(&self) -> bool {
+        self.run.lock().await.started
+    }
+
     /// Stops discovery and the background tasks.
     pub async fn stop(&self) {
         let mut run = self.run.lock().await;

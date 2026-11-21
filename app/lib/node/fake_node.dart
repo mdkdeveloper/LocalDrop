@@ -12,6 +12,9 @@ abstract final class FakeIds {
   static const scans = 'a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2';
   static const project = 'a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3';
 
+  /// This device.
+  static const me = 'ffffffffffffffffffffffffffffffff';
+
   /// Appears after a successful *Connect by address*.
   static const deskPc = '44444444444444444444444444444444';
 
@@ -93,19 +96,125 @@ class FakeNode implements NodeClient {
   }) async {
     await _wait(600); // Argon2id takes ~0.3–1 s on the real node.
     final name = groupName.trim().toLowerCase();
+    _group = name;
+    _password = password;
+    _me = ThisDevice(id: FakeIds.me, name: deviceName.trim());
     return GroupInfo(name, _fakeFingerprint('$name\u0000$password'));
   }
 
+  String _group = '';
+  String _password = '';
+  var _me = const ThisDevice(id: FakeIds.me, name: 'This device');
+
+  ThisDevice _meWith({String? name, bool? visible, int? fixedPort}) =>
+      ThisDevice(
+        id: _me.id,
+        name: name ?? _me.name,
+        visible: visible ?? _me.visible,
+        fixedPort: fixedPort ?? _me.fixedPort,
+      );
+
   @override
-  Future<List<DeviceView>> devices() async => const [
-    DeviceView(id: FakeIds.laptop, name: 'Work laptop', lastSeenUnix: _created),
-    DeviceView(id: FakeIds.phone, name: 'Pixel 8', lastSeenUnix: _created),
-    DeviceView(
+  Future<ThisDevice> thisDevice() async => ThisDevice(
+    id: _me.id,
+    name: _me.name,
+    visible: _me.visible,
+    fixedPort: _me.fixedPort,
+    port: _me.fixedPort == 0 ? 52814 : _me.fixedPort,
+  );
+
+  @override
+  Future<void> setDeviceName(String name) async {
+    final n = name.trim();
+    if (n.isEmpty) throw StateError('The device needs a name');
+    _me = _meWith(name: n);
+  }
+
+  @override
+  Future<void> setVisible(bool visible) async =>
+      _me = _meWith(visible: visible);
+
+  @override
+  Future<void> setFixedPort(int port) async {
+    if (port != 0 && (port < 1024 || port > 65535)) {
+      throw StateError('Use a port from 1024 to 65535, or Auto');
+    }
+    _me = _meWith(fixedPort: port);
+  }
+
+  @override
+  Future<GroupInfo> changePassword(String current, String newPassword) async {
+    await _wait(600);
+    if (current != _password) {
+      throw StateError('The current password is wrong');
+    }
+    if (newPassword.length < 10) {
+      throw StateError('Use at least 10 characters');
+    }
+    if (newPassword == current) {
+      throw StateError('The new password is the same');
+    }
+    _password = newPassword;
+    return GroupInfo(_group, _fakeFingerprint('$_group\u0000$newPassword'));
+  }
+
+  @override
+  Future<void> leaveGroup({
+    required bool keepQueue,
+    required bool forgetDevices,
+  }) async {
+    for (final t in _timers) {
+      t.cancel();
+    }
+    _ticker?.cancel();
+    _started = false;
+    if (!keepQueue) {
+      for (final j in _jobs.values.toList()) {
+        if (j.direction == Direction.outgoing && j.state.isActive) {
+          _jobs[j.id] = j.copyWith(state: JobState.cancelled);
+        }
+      }
+    }
+    if (forgetDevices) _devices.clear();
+  }
+
+  @override
+  Future<void> setDeviceAccept(String device, AcceptPolicy? policy) async {
+    final d = _devices[device] ?? (throw StateError('Unknown device'));
+    _devices[device] = d.copyWith(acceptOverride: () => policy);
+  }
+
+  @override
+  Future<void> forgetDevice(String device) async {
+    if (_devices.remove(device) == null) throw StateError('Unknown device');
+    for (final j in _jobs.values.toList()) {
+      if (j.peer == device && j.state.isActive) {
+        _setState(j.id, JobState.cancelled);
+      }
+    }
+  }
+
+  @override
+  Future<List<DeviceView>> devices() async => _devices.values.toList();
+
+  final _devices = <String, DeviceView>{
+    FakeIds.laptop: const DeviceView(
+      id: FakeIds.laptop,
+      name: 'Work laptop',
+      lastSeenUnix: _created,
+    ),
+    FakeIds.phone: const DeviceView(
+      id: FakeIds.phone,
+      name: 'Pixel 8',
+      lastSeenUnix: _created,
+      acceptOverride: AcceptPolicy.ask,
+    ),
+    FakeIds.desktop: const DeviceView(
       id: FakeIds.desktop,
       name: 'Living room PC',
       lastSeenUnix: _created - 7200,
     ),
-  ];
+  };
 
   @override
   Future<List<JobView>> jobs() async => _jobs.values.toList();
@@ -375,6 +484,23 @@ class FakeNode implements NodeClient {
 
   void _emit(NodeEvent e) {
     if (e is JobAdded) _jobs[e.job.id] = e.job;
+    // Presence, so that a reload of the device list keeps who is online.
+    if (e is PeerOnline) {
+      _devices[e.device] =
+          (_devices[e.device] ?? DeviceView(id: e.device, name: e.name))
+              .copyWith(presence: Presence.online, name: e.name);
+    }
+    if (e is PeerFound && _devices[e.device]?.presence == Presence.offline) {
+      _devices[e.device] = _devices[e.device]!.copyWith(
+        presence: Presence.found,
+      );
+    }
+    if (e is PeerOffline && _devices[e.device] != null) {
+      _devices[e.device] = _devices[e.device]!.copyWith(
+        presence: Presence.offline,
+        lastSeenUnix: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      );
+    }
     if (e is UntrustedNetwork && !_networks.any((n) => n.matches(e.key))) {
       // A second network came up next to Home; it isn't trusted yet.
       _networks.insert(

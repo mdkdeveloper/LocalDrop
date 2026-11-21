@@ -59,5 +59,34 @@ abstract class NodeClient {
   /// Completes when the device answered; throws with a readable message otherwise.
   Future<void> connectAddress(String host, {int? port, required bool remember});
 
+  // -- this device and the group (Settings › General) --
+
+  Future<ThisDevice> thisDevice();
+
+  Future<void> setDeviceName(String name);
+
+  Future<void> setVisible(bool visible);
+
+  /// 0 = a random port at every start.
+  Future<void> setFixedPort(int port);
+
+  /// Checks [current], switches to [newPassword] (10+ characters). Throws with a
+  /// readable message (wrong current password, too short). Returns the new group info.
+  Future<GroupInfo> changePassword(String current, String newPassword);
+
+  /// Leaves the group; the node can't be used afterwards (join again).
+  Future<void> leaveGroup({
+    required bool keepQueue,
+    required bool forgetDevices,
+  });
+
+  // -- known devices --
+
+  /// `null` = like the app default.
+  Future<void> setDeviceAccept(String device, AcceptPolicy? policy);
+
+  /// Forgets a device and its pinned key; its queued jobs are cancelled.
+  Future<void> forgetDevice(String device);
+
   Future<void> dispose();
 }

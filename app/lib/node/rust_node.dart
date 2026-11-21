@@ -47,6 +47,8 @@ class RustNode implements NodeClient {
   }
 
   Future<void> _open() async {
+    await _sub?.cancel();
+    _node?.dispose();
     _node = await _guard(() => rs.LdNode.open(home: home));
     _sub = _n.events().listen((e) {
       final m = _event(e);
@@ -174,6 +176,66 @@ class RustNode implements NodeClient {
       remember: remember,
     ),
   );
+
+  @override
+  Future<ThisDevice> thisDevice() async => ThisDevice(
+    id: _n.deviceId(),
+    name: _n.deviceName(),
+    visible: _n.visible(),
+    fixedPort: _n.fixedPort(),
+    port: _n.listenPort(),
+  );
+
+  @override
+  Future<void> setDeviceName(String name) async =>
+      _sync(() => _n.setDeviceName(name: name));
+
+  @override
+  Future<void> setVisible(bool visible) =>
+      _guard(() => _n.setVisible(visible: visible));
+
+  @override
+  Future<void> setFixedPort(int port) =>
+      _guard(() => _n.setFixedPort(port: port));
+
+  @override
+  Future<GroupInfo> changePassword(String current, String newPassword) async {
+    final g = await _guard(
+      () => _n.changePassword(current: current, new_: newPassword),
+    );
+    return GroupInfo(g.name, g.fingerprint);
+  }
+
+  @override
+  Future<void> leaveGroup({
+    required bool keepQueue,
+    required bool forgetDevices,
+  }) async {
+    await _guard(
+      () => _n.leaveGroup(keepQueue: keepQueue, forgetDevices: forgetDevices),
+    );
+    await _sub?.cancel();
+    _sub = null;
+    _node?.dispose();
+    _node = null;
+  }
+
+  @override
+  Future<void> setDeviceAccept(String device, AcceptPolicy? policy) async =>
+      _sync(
+        () => _n.setDeviceAccept(
+          device: device,
+          policy: switch (policy) {
+            AcceptPolicy.autoAccept => rs.AcceptPolicyDto.autoAccept,
+            AcceptPolicy.ask => rs.AcceptPolicyDto.ask,
+            null => null,
+          },
+        ),
+      );
+
+  @override
+  Future<void> forgetDevice(String device) async =>
+      _sync(() => _n.forgetDevice(device: device));
 
   @override
   Future<void> dispose() async {

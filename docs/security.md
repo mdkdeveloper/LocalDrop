@@ -81,7 +81,9 @@ another member's id, which only causes a failed connection attempt.
    (`Error::KeyMismatch`) and surfaced to the user. Since the id is derived from the key,
    in practice this means: the `Hello` claims another id than the certificate's key, or a
    member announced as one device authenticates as another; both close the connection
-   (code 3) and raise `KeyMismatch`.
+   (code 3) and raise `KeyMismatch`. The app shows it as "key doesn't match · refused"
+   with *Keep blocked* or *Forget*; there is no "trust the new key", because a
+   reinstalled device comes back under a new id as a new device.
 
 Implementation notes (M2): failed handshakes count per source IP; after 5 failures
 within a minute that address is refused before TLS until the minute is over. The

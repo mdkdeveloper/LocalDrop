@@ -7,6 +7,7 @@ import '../theme/theme.dart';
 import 'device_screen.dart';
 import 'devices_screen.dart';
 import 'dialogs.dart';
+import 'known_devices.dart';
 import 'format.dart';
 import 'networks.dart';
 import 'placeholder_screen.dart';
@@ -60,7 +61,7 @@ class Shell extends StatefulWidget {
 
 class _ShellState extends State<Shell> {
   Place _place = const SectionPlace(Section.transfers);
-  SettingsTab _settingsTab = SettingsTab.group;
+  SettingsTab _settingsTab = SettingsTab.general;
   final _shown = <String>{};
   AppState? _state;
 
@@ -112,6 +113,17 @@ class _ShellState extends State<Shell> {
           }
         })
         ..ensureVisualUpdate();
+    }
+    for (final m in s.keyMismatches) {
+      if (_shown.add('key:${m.device}')) {
+        WidgetsBinding.instance
+          ..addPostFrameCallback((_) {
+            if (mounted && s.keyMismatches.contains(m)) {
+              showKeyMismatch(context, m);
+            }
+          })
+          ..ensureVisualUpdate();
+      }
     }
     final err = s.lastError;
     if (err != null) {

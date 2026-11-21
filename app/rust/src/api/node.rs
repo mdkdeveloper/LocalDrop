@@ -511,7 +511,58 @@ impl LdNode {
         on_rt(async move { Ok(n.leave_group(keep_queue, forget_devices).await?) }).await
     }
 
+    // -- this device --
+
+    #[frb(sync)]
+    pub fn set_device_name(&self, name: String) -> Result<()> {
+        Ok(self.node.set_device_name(name)?)
+    }
+
+    /// *Visible to your group*.
+    #[frb(sync)]
+    pub fn visible(&self) -> bool {
+        self.node.settings().visible
+    }
+
+    pub async fn set_visible(&self, visible: bool) -> Result<()> {
+        let n = self.node.clone();
+        on_rt(async move { Ok(n.set_visible(visible).await?) }).await
+    }
+
+    /// Fixed listening port, 0 = random at every start.
+    #[frb(sync)]
+    pub fn fixed_port(&self) -> u16 {
+        self.node.fixed_port()
+    }
+
+    pub async fn set_fixed_port(&self, port: u16) -> Result<()> {
+        let n = self.node.clone();
+        on_rt(async move { Ok(n.set_fixed_port(port).await?) }).await
+    }
+
+    /// The port in use now, if running.
+    #[frb(sync)]
+    pub fn listen_port(&self) -> Option<u16> {
+        self.node.listen_port()
+    }
+
     // -- devices --
+
+    /// `None` = like the app default.
+    #[frb(sync)]
+    pub fn set_device_accept(&self, device: String, policy: Option<AcceptPolicyDto>) -> Result<()> {
+        let p = policy.map(|p| match p {
+            AcceptPolicyDto::AutoAccept => localdrop_core::AcceptPolicy::AutoAccept,
+            AcceptPolicyDto::Ask => localdrop_core::AcceptPolicy::Ask,
+        });
+        Ok(self.node.set_device_accept(device_id(&device)?, p)?)
+    }
+
+    /// Forgets a device and its pinned key; its queued jobs are cancelled.
+    #[frb(sync)]
+    pub fn forget_device(&self, device: String) -> Result<()> {
+        Ok(self.node.forget_device(device_id(&device)?)?)
+    }
 
     #[frb(sync)]
     pub fn devices(&self) -> Result<Vec<DeviceDto>> {

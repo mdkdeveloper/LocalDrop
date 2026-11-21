@@ -222,6 +222,45 @@ impl Node {
         Ok(())
     }
 
+    /// Renames this device. Devices that are connected now see the new name after the
+    /// next reconnect; new connections send it in `Hello` right away.
+    pub fn set_device_name(&self, name: String) -> Result<()> {
+        let name = name.trim().to_owned();
+        if name.is_empty() || name.len() > 64 {
+            return Err(Error::InvalidState);
+        }
+        self.update_settings(|s| s.device_name = name.clone())?;
+        if let Some(ep) = self.shared.endpoint.lock().expect("poisoned").as_ref() {
+            ep.set_device_name(name);
+        }
+        Ok(())
+    }
+
+    /// The fixed listening port, or 0 for a random port at every start (the default;
+    /// avoids linking announcements over time).
+    pub fn fixed_port(&self) -> u16 {
+        self.settings().listen_port
+    }
+
+    /// Sets a fixed listening port (0 = random). A running node restarts its endpoint
+    /// and discovery so the new port is used and announced; connections reconnect.
+    /// A fixed port makes *Connect by address* work without typing the port when it is
+    /// 47474.
+    pub async fn set_fixed_port(&self, port: u16) -> Result<()> {
+        if port != 0 && port < 1024 {
+            return Err(Error::InvalidState);
+        }
+        if self.fixed_port() == port {
+            return Ok(());
+        }
+        self.update_settings(|s| s.listen_port = port)?;
+        if self.shared.is_started().await {
+            self.shared.stop().await;
+            self.shared.start().await;
+        }
+        Ok(())
+    }
+
     // -- Group --------------------------------------------------------------------------
 
     /// Group name and fingerprint.

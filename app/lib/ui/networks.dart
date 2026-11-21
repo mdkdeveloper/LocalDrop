@@ -295,30 +295,13 @@ class _RememberedTile extends StatelessWidget {
 
 Future<void> _rename(BuildContext context, NetworkView n) async {
   final s = AppScope.of(context);
-  final ctl = TextEditingController(text: n.label);
-  final name = await showDialog<String>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('Rename network'),
-      content: TextField(
-        controller: ctl,
-        autofocus: true,
-        decoration: const InputDecoration(labelText: 'Name'),
-        onSubmitted: (v) => Navigator.pop(context, v),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(context, ctl.text),
-          child: const Text('Rename'),
-        ),
-      ],
-    ),
+  final name = await askText(
+    context,
+    title: 'Rename network',
+    label: 'Name',
+    initial: n.label,
+    action: 'Rename',
   );
-  ctl.dispose();
   if (name != null && name.trim().isNotEmpty && name.trim() != n.label) {
     await s.renameNetwork(n.key, name.trim());
   }

@@ -3,15 +3,18 @@ import 'package:material_ui/material_ui.dart';
 import '../app.dart';
 import '../theme/theme.dart';
 import 'dialogs.dart';
+import 'group_screens.dart';
+import 'known_devices.dart';
 import 'networks.dart';
 import 'widgets.dart';
 
-/// Settings tabs that exist so far; the rest comes with M2 (group, devices) and M6.
-enum SettingsTab { group, networks }
+/// Settings tabs that exist so far; receive folders, notifications and more come
+/// with M3 and M6.
+enum SettingsTab { general, devices, networks }
 
 /// Settings (wireframes `settings`, `d-settings`): a list on phones, tabs on desktop.
 class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key, this.tab = SettingsTab.group, this.onTab});
+  const SettingsScreen({super.key, this.tab = SettingsTab.general, this.onTab});
 
   final SettingsTab tab;
 
@@ -37,6 +40,7 @@ class SettingsScreen extends StatelessWidget {
             children: [
               for (final t in SettingsTab.values)
                 ListTile(
+                  key: Key('tab-${t.name}'),
                   selected: t == tab,
                   selectedTileColor: c.surface2,
                   shape: RoundedRectangleBorder(
@@ -51,7 +55,8 @@ class SettingsScreen extends StatelessWidget {
         ),
         Expanded(
           child: switch (tab) {
-            SettingsTab.group => const _GroupTab(),
+            SettingsTab.general => const _GeneralTab(),
+            SettingsTab.devices => const KnownDevicesList(),
             SettingsTab.networks => const NetworksScreen(),
           },
         ),
@@ -61,12 +66,14 @@ class SettingsScreen extends StatelessWidget {
 }
 
 IconData _icon(SettingsTab t) => switch (t) {
-  SettingsTab.group => Icons.group_outlined,
+  SettingsTab.general => Icons.tune,
+  SettingsTab.devices => Icons.devices_outlined,
   SettingsTab.networks => Icons.wifi,
 };
 
 String _title(SettingsTab t) => switch (t) {
-  SettingsTab.group => 'Group',
+  SettingsTab.general => 'General',
+  SettingsTab.devices => 'Devices',
   SettingsTab.networks => 'Networks',
 };
 
@@ -76,33 +83,56 @@ class _PhoneList extends StatelessWidget {
     final s = AppScope.of(context);
     final t = Theme.of(context).textTheme;
     final c = context.ld;
+    ListTile tile(
+      String key,
+      IconData icon,
+      String title,
+      String sub,
+      VoidCallback onTap,
+    ) => ListTile(
+      key: Key(key),
+      leading: Icon(icon, color: c.mute),
+      title: Text(title),
+      subtitle: Text(sub, style: t.bodySmall),
+      trailing: Icon(Icons.chevron_right, color: c.faint),
+      onTap: onTap,
+    );
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
         Text('Settings', style: t.headlineSmall),
         const SizedBox(height: 8),
-        const _GroupCard(),
-        const SizedBox(height: 12),
         GroupCard(
           children: [
-            ListTile(
-              key: const Key('settings-networks'),
-              leading: Icon(Icons.wifi, color: c.mute),
-              title: const Text('Networks'),
-              subtitle: Text(
-                s.searchingLabel == null
-                    ? 'Not searching'
-                    : 'Searching on ${s.searchingLabel}',
-                style: t.bodySmall,
-              ),
-              trailing: Icon(Icons.chevron_right, color: c.faint),
-              onTap: () => openNetworksPage(context),
+            tile(
+              'settings-group',
+              Icons.group_outlined,
+              'Group',
+              '${s.group?.name} · ${s.group?.fingerprint}',
+              () => Navigator.of(context)
+                  .push(MaterialPageRoute(builder: (_) => const GroupPage())),
+            ),
+            tile(
+              'settings-devices',
+              Icons.devices_outlined,
+              'Known devices',
+              '${s.devices.length} in group ${s.group?.name}',
+              () => openKnownDevicesPage(context),
+            ),
+            tile(
+              'settings-networks',
+              Icons.wifi,
+              'Networks',
+              s.searchingLabel == null
+                  ? 'Not searching'
+                  : 'Searching on ${s.searchingLabel}',
+              () => openNetworksPage(context),
             ),
           ],
         ),
         const SizedBox(height: 12),
         Text(
-          'Devices, receive folders and notifications come with later milestones.',
+          'Receive folders and notifications come with later milestones.',
           style: t.bodySmall,
         ),
       ],
@@ -131,58 +161,42 @@ void openNetworksPage(BuildContext context) => Navigator.of(context).push(
   ),
 );
 
-class _GroupTab extends StatelessWidget {
-  const _GroupTab();
+class _GeneralTab extends StatelessWidget {
+  const _GeneralTab();
 
   @override
-  Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-    children: [
-      const SectionLabel('Group'),
-      const _GroupCard(),
-      Padding(
-        padding: const EdgeInsets.fromLTRB(4, 10, 4, 0),
-        child: Text(
-          'Changing the password and leaving the group come with M2.',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-      ),
-    ],
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) {
+      final group = [const SectionLabel('Group'), const GroupSection()];
+      final device = [
+        const SectionLabel('This device'),
+        const ThisDeviceSection(),
+      ];
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        children: box.maxWidth >= 860
+            ? [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: group,
+                      ),
+                    ),
+                    const SizedBox(width: 24),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: device,
+                      ),
+                    ),
+                  ],
+                ),
+              ]
+            : [...group, ...device],
+      );
+    },
   );
-}
-
-class _GroupCard extends StatelessWidget {
-  const _GroupCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final s = AppScope.of(context);
-    final t = Theme.of(context).textTheme;
-    final g = s.group;
-    return GroupCard(
-      children: [
-        ListTile(
-          title: const Text('Group'),
-          trailing: Text(g?.name ?? '—', style: t.bodyMedium),
-        ),
-        ListTile(
-          title: const Text('Fingerprint'),
-          subtitle: Text(
-            'The same on every device of the group',
-            style: t.bodySmall,
-          ),
-          trailing: Text(
-            g?.fingerprint ?? '—',
-            style: t.bodyMedium?.copyWith(
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-        ),
-        ListTile(
-          title: const Text('This device'),
-          trailing: Text(s.deviceName, style: t.bodyMedium),
-        ),
-      ],
-    );
-  }
 }

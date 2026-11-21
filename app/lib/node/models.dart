@@ -166,6 +166,29 @@ class NetworkSettings {
   );
 }
 
+/// This device, as Settings › General shows it.
+class ThisDevice {
+  const ThisDevice({
+    required this.id,
+    required this.name,
+    this.visible = true,
+    this.fixedPort = 0,
+    this.port,
+  });
+
+  final String id;
+  final String name;
+
+  /// *Visible to your group*: announce, or only browse.
+  final bool visible;
+
+  /// Fixed listening port; 0 = a random one at every start.
+  final int fixedPort;
+
+  /// Port in use now, if running.
+  final int? port;
+}
+
 class GroupInfo {
   const GroupInfo(this.name, this.fingerprint);
   final String name;
@@ -194,12 +217,15 @@ class DeviceView {
     Presence? presence,
     int? lastSeenUnix,
     int? queuedJobs,
+    AcceptPolicy? Function()? acceptOverride,
   }) => DeviceView(
     id: id,
     name: name ?? this.name,
     presence: presence ?? this.presence,
     lastSeenUnix: lastSeenUnix ?? this.lastSeenUnix,
-    acceptOverride: acceptOverride,
+    acceptOverride: acceptOverride != null
+        ? acceptOverride()
+        : this.acceptOverride,
     queuedJobs: queuedJobs ?? this.queuedJobs,
   );
 }
